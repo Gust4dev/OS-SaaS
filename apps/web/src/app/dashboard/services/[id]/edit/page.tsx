@@ -18,6 +18,8 @@ import {
   Label,
   Skeleton,
 } from '@/components/ui';
+import { trpc } from '@/lib/trpc/provider';
+import { toast } from 'sonner';
 
 const serviceFormSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -31,17 +33,6 @@ const serviceFormSchema = z.object({
 
 type ServiceFormData = z.infer<typeof serviceFormSchema>;
 
-const mockService = {
-  id: 's1',
-  name: 'PPF Frontal',
-  description: 'Proteção de pintura na parte frontal do veículo',
-  basePrice: 4500,
-  estimatedTime: 480,
-  returnDays: 365,
-  isActive: true,
-  defaultCommissionPercent: 10,
-};
-
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -49,8 +40,23 @@ interface PageProps {
 export default function EditServicePage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Queries
+  const serviceQuery = trpc.service.getById.useQuery({ id });
+  const utils = trpc.useUtils();
+
+  // Mutation
+  const updateService = trpc.service.update.useMutation({
+    onSuccess: () => {
+      toast.success('Serviço atualizado com sucesso');
+      utils.service.getById.invalidate({ id });
+      utils.service.list.invalidate(); // Refresh lists
+      router.push(`/dashboard/services`);
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Erro ao atualizar serviço');
+    },
+  });
 
   const {
     register,
@@ -65,34 +71,38 @@ export default function EditServicePage({ params }: PageProps) {
 
   const isActive = watch('isActive');
 
+  // Load data into form
   useEffect(() => {
-    const loadService = async () => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    if (serviceQuery.data) {
+      const service = serviceQuery.data;
       reset({
-        name: mockService.name,
-        description: mockService.description || '',
-        basePrice: mockService.basePrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-        estimatedTime: mockService.estimatedTime?.toString() || '',
-        returnDays: mockService.returnDays?.toString() || '',
-        defaultCommissionPercent: mockService.defaultCommissionPercent?.toString() || '',
-        isActive: mockService.isActive,
+        name: service.name,
+        description: service.description || '',
+        basePrice: Number(service.basePrice).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        estimatedTime: service.estimatedTime?.toString() || '',
+        returnDays: service.returnDays?.toString() || '',
+        defaultCommissionPercent: service.defaultCommissionPercent?.toString() || '',
+        isActive: service.isActive,
       });
-      setIsLoading(false);
-    };
-    loadService();
-  }, [id, reset]);
+    }
+  }, [serviceQuery.data, reset]);
 
   const onSubmit = async (data: ServiceFormData) => {
-    setIsSubmitting(true);
-    try {
-      console.log('Update service:', id, data);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      router.push(`/dashboard/services/${id}`);
-    } catch (error) {
-      console.error('Error updating service:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Convert formatted string back to number
+    const basePrice = parseFloat(data.basePrice.replace(/\D/g, '')) / 100;
+
+    updateService.mutate({
+      id,
+      data: {
+        name: data.name,
+        description: data.description,
+        basePrice,
+        estimatedTime: data.estimatedTime ? parseInt(data.estimatedTime) : undefined,
+        returnDays: data.returnDays ? parseInt(data.returnDays) : undefined,
+        defaultCommissionPercent: data.defaultCommissionPercent ? parseFloat(data.defaultCommissionPercent) : undefined,
+        isActive: data.isActive,
+      },
+    });
   };
 
   const formatCurrency = (value: string) => {
@@ -102,7 +112,7 @@ export default function EditServicePage({ params }: PageProps) {
     return amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  if (isLoading) {
+  if (serviceQuery.isLoading) {
     return (
       <div className="mx-auto max-w-2xl space-y-6">
         <div className="flex items-center gap-4">
@@ -126,11 +136,21 @@ export default function EditServicePage({ params }: PageProps) {
     );
   }
 
+  if (serviceQuery.isError || !serviceQuery.data) {
+    return (
+      <div className="mx-auto max-w-2xl text-center py-12">
+        <h3 className="text-lg font-semibold text-destructive">Erro ao carregar serviço</h3>
+        <p className="text-muted-foreground mb-4">{serviceQuery.error?.message || 'Serviço não encontrado'}</p>
+        <Button onClick={() => router.back()}>Voltar</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
-          <Link href={`/dashboard/services/${id}`}>
+          <Link href={`/dashboard/services`}>
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
@@ -148,7 +168,7 @@ export default function EditServicePage({ params }: PageProps) {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name" required>Nome do Serviço</Label>
+              <Label htmlFor="name">Nome do Serviço *</Label>
               <Input id="name" {...register('name')} error={errors.name?.message} />
             </div>
 
@@ -163,7 +183,7 @@ export default function EditServicePage({ params }: PageProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="basePrice" required>Preço Base</Label>
+              <Label htmlFor="basePrice">Preço Base *</Label>
               <Input
                 id="basePrice"
                 {...register('basePrice', {
@@ -204,10 +224,10 @@ export default function EditServicePage({ params }: PageProps) {
 
             <div className="flex justify-end gap-3 pt-4 border-t">
               <Button type="button" variant="outline" asChild>
-                <Link href={`/dashboard/services/${id}`}>Cancelar</Link>
+                <Link href={`/dashboard/services`}>Cancelar</Link>
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
+              <Button type="submit" disabled={updateService.isPending}>
+                {updateService.isPending ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</>
                 ) : (
                   <><Save className="mr-2 h-4 w-4" />Salvar Alterações</>

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
-import { OrderStatus as PrismaOrderStatus } from '@prisma/client';
+import { OrderStatus as PrismaOrderStatus, PaymentMethod } from '@prisma/client';
 
 // Valid status transitions
 const validTransitions: Record<string, string[]> = {
@@ -42,130 +42,73 @@ const orderUpdateSchema = z.object({
     assignedToId: z.string().optional(),
     discountType: z.enum(['PERCENTAGE', 'FIXED']).optional(),
     discountValue: z.number().min(0).optional(),
-});
-
-const orderListSchema = z.object({
-    page: z.number().min(1).default(1),
-    limit: z.number().min(1).max(100).default(20),
-    search: z.string().optional(),
-    status: z.array(z.enum(['AGENDADO', 'EM_VISTORIA', 'EM_EXECUCAO', 'AGUARDANDO_PAGAMENTO', 'CONCLUIDO', 'CANCELADO'])).optional(),
-    assignedToId: z.string().optional(),
-    dateFrom: z.date().optional(),
-    dateTo: z.date().optional(),
+    items: z.array(orderItemSchema).optional(),
 });
 
 const paymentSchema = z.object({
     orderId: z.string(),
-    method: z.enum(['PIX', 'CARTAO_CREDITO', 'CARTAO_DEBITO', 'DINHEIRO', 'TRANSFERENCIA']),
-    amount: z.number().min(0.01),
+    method: z.nativeEnum(PaymentMethod),
+    amount: z.number().min(0),
     notes: z.string().optional(),
 });
 
-// Helper to generate order code
-function generateOrderCode(): string {
-    const year = new Date().getFullYear();
-    const random = Math.floor(Math.random() * 9000) + 1000;
-    return `OS-${year}-${random}`;
-}
-
-// Helper to calculate order totals
-function calculateTotals(
-    items: { price: number; quantity: number }[],
-    discountType?: string,
-    discountValue?: number
-) {
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    let discount = 0;
-
-    if (discountType && discountValue) {
-        discount = discountType === 'PERCENTAGE'
-            ? subtotal * (discountValue / 100)
-            : discountValue;
-    }
-
-    const total = Math.max(0, subtotal - discount);
-    return { subtotal, discount, total };
-}
-
 export const orderRouter = router({
-    // List orders with filters
-    list: protectedProcedure
-        .input(orderListSchema)
-        .query(async ({ ctx, input }) => {
-            const { page, limit, search, status, assignedToId, dateFrom, dateTo } = input;
-            const skip = (page - 1) * limit;
+    create: protectedProcedure
+        .input(orderCreateSchema)
+        .mutation(async ({ ctx, input }) => {
+            const { subtotal, total } = calculateTotals(
+                input.items,
+                input.discountType,
+                input.discountValue
+            );
 
-            const where = {
-                tenantId: ctx.tenantId!,
-                ...(status && status.length > 0 && { status: { in: status as PrismaOrderStatus[] } }),
-                ...(assignedToId && { assignedToId }),
-                ...(dateFrom && dateTo && {
-                    scheduledAt: { gte: dateFrom, lte: dateTo },
-                }),
-                ...(search && {
-                    OR: [
-                        { code: { contains: search, mode: 'insensitive' as const } },
-                        { vehicle: { plate: { contains: search, mode: 'insensitive' as const } } },
-                        { vehicle: { customer: { name: { contains: search, mode: 'insensitive' as const } } } },
-                    ],
-                }),
-            };
-
-            const [orders, total] = await Promise.all([
-                ctx.db.serviceOrder.findMany({
-                    where,
-                    skip,
-                    take: limit,
-                    orderBy: { scheduledAt: 'desc' },
-                    include: {
-                        vehicle: {
-                            include: {
-                                customer: { select: { id: true, name: true, phone: true } },
-                            },
-                        },
-                        assignedTo: { select: { id: true, name: true } },
-                        _count: { select: { items: true, payments: true } },
-                    },
-                }),
-                ctx.db.serviceOrder.count({ where }),
-            ]);
-
-            return {
-                orders,
-                pagination: {
-                    page,
-                    limit,
+            const order = await ctx.db.serviceOrder.create({
+                data: {
+                    tenantId: ctx.tenantId!,
+                    vehicleId: input.vehicleId,
+                    assignedToId: input.assignedToId,
+                    createdById: ctx.user!.id,
+                    scheduledAt: input.scheduledAt,
+                    status: 'AGENDADO',
+                    subtotal,
+                    discountType: input.discountType,
+                    discountValue: input.discountValue,
                     total,
-                    totalPages: Math.ceil(total / limit),
+                    code: `OS-${Date.now()}`, // Simple code generation, improved logic might be needed
+                    items: {
+                        create: input.items.map((item) => ({
+                            serviceId: item.serviceId,
+                            customName: item.customName,
+                            price: item.price,
+                            quantity: item.quantity,
+                            notes: item.notes,
+                        })),
+                    },
                 },
-            };
+            });
+
+            return order;
         }),
 
-    // Get single order with full details
     getById: protectedProcedure
         .input(z.object({ id: z.string() }))
         .query(async ({ ctx, input }) => {
             const order = await ctx.db.serviceOrder.findFirst({
-                where: {
-                    id: input.id,
-                    tenantId: ctx.tenantId!,
-                },
+                where: { id: input.id, tenantId: ctx.tenantId! },
                 include: {
                     vehicle: {
-                        include: { customer: true },
+                        include: {
+                            customer: true,
+                        },
                     },
-                    assignedTo: { select: { id: true, name: true, avatarUrl: true } },
-                    createdBy: { select: { id: true, name: true } },
                     items: {
-                        include: { service: { select: { id: true, name: true } } },
+                        include: {
+                            service: true,
+                        },
                     },
-                    products: {
-                        include: { product: { select: { id: true, name: true, unit: true } } },
-                    },
-                    payments: {
-                        orderBy: { paidAt: 'desc' },
-                    },
-                    inspection: true,
+                    payments: true,
+                    assignedTo: true,
+                    createdBy: true,
                 },
             });
 
@@ -176,93 +119,60 @@ export const orderRouter = router({
                 });
             }
 
-            // Calculate paid amount
-            const paidAmount = order.payments.reduce(
-                (sum, p) => sum + Number(p.amount),
-                0
-            );
-
-            return {
-                ...order,
-                paidAmount,
-                balance: Number(order.total) - paidAmount,
-            };
+            return order;
         }),
 
-    // Create new order
-    create: protectedProcedure
-        .input(orderCreateSchema)
-        .mutation(async ({ ctx, input }) => {
-            // Verify vehicle belongs to tenant
-            const vehicle = await ctx.db.vehicle.findFirst({
-                where: { id: input.vehicleId, tenantId: ctx.tenantId! },
-            });
+    list: protectedProcedure
+        .input(z.object({
+            page: z.number().default(1),
+            limit: z.number().default(10),
+            status: z.array(z.nativeEnum(PrismaOrderStatus)).optional(),
+            dateFrom: z.date().optional(),
+            dateTo: z.date().optional(),
+        }))
+        .query(async ({ ctx, input }) => {
+            const where = {
+                tenantId: ctx.tenantId!,
+                status: input.status && input.status.length > 0 ? { in: input.status } : undefined,
+                scheduledAt: (input.dateFrom || input.dateTo) ? {
+                    gte: input.dateFrom,
+                    lte: input.dateTo,
+                } : undefined,
+            };
 
-            if (!vehicle) {
-                throw new TRPCError({
-                    code: 'NOT_FOUND',
-                    message: 'Veículo não encontrado',
-                });
-            }
-
-            // Verify assigned user belongs to tenant
-            const assignedUser = await ctx.db.user.findFirst({
-                where: { id: input.assignedToId, tenantId: ctx.tenantId! },
-            });
-
-            if (!assignedUser) {
-                throw new TRPCError({
-                    code: 'NOT_FOUND',
-                    message: 'Responsável não encontrado',
-                });
-            }
-
-            // Calculate totals
-            const { subtotal, total } = calculateTotals(
-                input.items,
-                input.discountType,
-                input.discountValue
-            );
-
-            // Create order with items
-            const order = await ctx.db.serviceOrder.create({
-                data: {
-                    code: generateOrderCode(),
-                    status: 'AGENDADO',
-                    scheduledAt: input.scheduledAt,
-                    vehicleId: input.vehicleId,
-                    assignedToId: input.assignedToId,
-                    createdById: ctx.user!.id,
-                    tenantId: ctx.tenantId!,
-                    subtotal,
-                    discountType: input.discountType,
-                    discountValue: input.discountValue,
-                    total,
-                    items: {
-                        create: input.items.map((item) => ({
-                            serviceId: item.serviceId,
-                            customName: item.customName,
-                            price: item.price,
-                            quantity: item.quantity,
-                            notes: item.notes,
-                        })),
+            const [orders, count] = await Promise.all([
+                ctx.db.serviceOrder.findMany({
+                    where,
+                    skip: (input.page - 1) * input.limit,
+                    take: input.limit,
+                    orderBy: {
+                        scheduledAt: 'asc',
                     },
-                    ...(input.products && input.products.length > 0 && {
-                        products: {
-                            create: input.products.map((p) => ({
-                                productId: p.productId,
-                                quantity: p.quantity,
-                            })),
+                    include: {
+                        vehicle: {
+                            include: {
+                                customer: {
+                                    select: { name: true },
+                                },
+                            },
                         },
-                    }),
-                },
-                include: {
-                    vehicle: { include: { customer: true } },
-                    items: true,
-                },
-            });
+                        items: {
+                            include: {
+                                service: {
+                                    select: { name: true },
+                                },
+                            },
+                        },
+                    },
+                }),
+                ctx.db.serviceOrder.count({ where }),
+            ]);
 
-            return order;
+            return {
+                orders,
+                total: count,
+                pages: Math.ceil(count / input.limit),
+            };
         }),
 
     // Update order basic info
@@ -281,14 +191,50 @@ export const orderRouter = router({
                 });
             }
 
-            // Recalculate if discount changed
-            const items = existing.items.map((i) => ({
-                price: Number(i.price),
-                quantity: i.quantity,
-            }));
+            // Verify assigned user if changing
+            if (input.data.assignedToId) {
+                const assignedUser = await ctx.db.user.findFirst({
+                    where: { id: input.data.assignedToId, tenantId: ctx.tenantId! },
+                });
+                if (!assignedUser) {
+                    throw new TRPCError({
+                        code: 'NOT_FOUND',
+                        message: 'Responsável não encontrado',
+                    });
+                }
+            }
+
+            // Handle items update
+            if (input.data.items) {
+                // Delete existing items
+                await ctx.db.orderItem.deleteMany({
+                    where: { orderId: input.id },
+                });
+
+                // Create new items
+                await ctx.db.orderItem.createMany({
+                    data: input.data.items.map((item) => ({
+                        orderId: input.id,
+                        serviceId: item.serviceId,
+                        customName: item.customName,
+                        price: item.price,
+                        quantity: item.quantity,
+                        notes: item.notes,
+                    })),
+                });
+            }
+
+            // Calculate new totals
+            // Use new items if provided, otherwise use existing
+            const itemsToCalc = input.data.items
+                ? input.data.items
+                : existing.items.map((i) => ({
+                    price: Number(i.price),
+                    quantity: i.quantity,
+                }));
 
             const { subtotal, total } = calculateTotals(
-                items,
+                itemsToCalc,
                 input.data.discountType || existing.discountType || undefined,
                 input.data.discountValue !== undefined
                     ? input.data.discountValue
@@ -298,7 +244,10 @@ export const orderRouter = router({
             const order = await ctx.db.serviceOrder.update({
                 where: { id: input.id },
                 data: {
-                    ...input.data,
+                    scheduledAt: input.data.scheduledAt,
+                    assignedToId: input.data.assignedToId,
+                    discountType: input.data.discountType,
+                    discountValue: input.data.discountValue,
                     subtotal,
                     total,
                 },
@@ -311,7 +260,7 @@ export const orderRouter = router({
     updateStatus: protectedProcedure
         .input(z.object({
             id: z.string(),
-            status: z.enum(['AGENDADO', 'EM_VISTORIA', 'EM_EXECUCAO', 'AGUARDANDO_PAGAMENTO', 'CONCLUIDO', 'CANCELADO']),
+            status: z.nativeEnum(PrismaOrderStatus),
         }))
         .mutation(async ({ ctx, input }) => {
             const existing = await ctx.db.serviceOrder.findFirst({
@@ -396,43 +345,44 @@ export const orderRouter = router({
         }),
 
     // Get dashboard stats
-    getStats: protectedProcedure.query(async ({ ctx }) => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+    getStats: protectedProcedure
+        .query(async ({ ctx }) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
 
-        const [todayOrders, inProgress, monthRevenue] = await Promise.all([
-            ctx.db.serviceOrder.count({
-                where: {
-                    tenantId: ctx.tenantId!,
-                    scheduledAt: { gte: today, lt: tomorrow },
-                },
-            }),
-            ctx.db.serviceOrder.count({
-                where: {
-                    tenantId: ctx.tenantId!,
-                    status: { in: ['EM_VISTORIA', 'EM_EXECUCAO'] },
-                },
-            }),
-            ctx.db.serviceOrder.aggregate({
-                where: {
-                    tenantId: ctx.tenantId!,
-                    status: 'CONCLUIDO',
-                    completedAt: {
-                        gte: new Date(today.getFullYear(), today.getMonth(), 1),
+            const [todayOrders, inProgress, monthRevenue] = await Promise.all([
+                ctx.db.serviceOrder.count({
+                    where: {
+                        tenantId: ctx.tenantId!,
+                        scheduledAt: { gte: today, lt: tomorrow },
                     },
-                },
-                _sum: { total: true },
-            }),
-        ]);
+                }),
+                ctx.db.serviceOrder.count({
+                    where: {
+                        tenantId: ctx.tenantId!,
+                        status: { in: ['EM_VISTORIA', 'EM_EXECUCAO'] },
+                    },
+                }),
+                ctx.db.serviceOrder.aggregate({
+                    where: {
+                        tenantId: ctx.tenantId!,
+                        status: 'CONCLUIDO',
+                        completedAt: {
+                            gte: new Date(today.getFullYear(), today.getMonth(), 1),
+                        },
+                    },
+                    _sum: { total: true },
+                }),
+            ]);
 
-        return {
-            todayOrders,
-            inProgress,
-            monthRevenue: Number(monthRevenue._sum.total) || 0,
-        };
-    }),
+            return {
+                todayOrders,
+                inProgress,
+                monthRevenue: Number(monthRevenue._sum.total) || 0,
+            };
+        }),
 
     // Get recent orders for dashboard
     getRecent: protectedProcedure
@@ -457,3 +407,26 @@ export const orderRouter = router({
             return orders;
         }),
 });
+
+// Helper functions
+function calculateTotals(
+    items: { price: number; quantity: number }[],
+    discountType?: string | null,
+    discountValue?: number | null
+) {
+    const subtotal = items.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0);
+    let total = subtotal;
+
+    if (discountType && discountValue) {
+        if (discountType === 'PERCENTAGE') {
+            total -= subtotal * (discountValue / 100);
+        } else if (discountType === 'FIXED') {
+            total -= discountValue;
+        }
+    }
+
+    return {
+        subtotal,
+        total: Math.max(0, total),
+    };
+}

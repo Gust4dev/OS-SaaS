@@ -18,6 +18,8 @@ import {
   Label,
   Skeleton,
 } from '@/components/ui';
+import { trpc } from '@/lib/trpc/provider';
+import { toast } from 'sonner';
 
 // Form validation schema
 const vehicleFormSchema = z.object({
@@ -30,21 +32,6 @@ const vehicleFormSchema = z.object({
 
 type VehicleFormData = z.infer<typeof vehicleFormSchema>;
 
-// Mock data
-const mockVehicle = {
-  id: 'v1',
-  plate: 'ABC-1234',
-  brand: 'BMW',
-  model: 'X5',
-  color: 'Preta',
-  year: 2023,
-  customer: {
-    id: '1',
-    name: 'João Silva',
-    phone: '(11) 99999-1234',
-  },
-};
-
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -52,47 +39,56 @@ interface PageProps {
 export default function EditVehiclePage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [customer, setCustomer] = useState<typeof mockVehicle.customer | null>(null);
+  
+  // Queries
+  const vehicleQuery = trpc.vehicle.getById.useQuery({ id });
+  const utils = trpc.useUtils();
+
+  // Mutation
+  const updateVehicle = trpc.vehicle.update.useMutation({
+    onSuccess: () => {
+      toast.success('Veículo atualizado com sucesso');
+      utils.vehicle.getById.invalidate({ id });
+      utils.vehicle.list.invalidate(); // Refresh lists
+      router.push(`/dashboard/vehicles/${id}`);
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Erro ao atualizar veículo');
+    },
+  });
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
   } = useForm<VehicleFormData>({
     resolver: zodResolver(vehicleFormSchema),
   });
 
-  // Load vehicle data
+  // Load data into form
   useEffect(() => {
-    const loadVehicle = async () => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    if (vehicleQuery.data) {
+      const vehicle = vehicleQuery.data;
       reset({
-        plate: mockVehicle.plate,
-        brand: mockVehicle.brand,
-        model: mockVehicle.model,
-        color: mockVehicle.color,
-        year: mockVehicle.year?.toString() || '',
+        plate: vehicle.plate,
+        brand: vehicle.brand,
+        model: vehicle.model,
+        color: vehicle.color,
+        year: vehicle.year?.toString() || '',
       });
-      setCustomer(mockVehicle.customer);
-      setIsLoading(false);
-    };
-    loadVehicle();
-  }, [id, reset]);
+    }
+  }, [vehicleQuery.data, reset]);
 
   const onSubmit = async (data: VehicleFormData) => {
-    setIsSubmitting(true);
-    try {
-      console.log('Update vehicle:', id, data);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      router.push(`/dashboard/vehicles/${id}`);
-    } catch (error) {
-      console.error('Error updating vehicle:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
+    updateVehicle.mutate({
+      id,
+      data: {
+        ...data,
+        year: data.year ? parseInt(data.year) : undefined,
+      },
+    });
   };
 
   const formatPlate = (value: string) => {
@@ -102,7 +98,7 @@ export default function EditVehiclePage({ params }: PageProps) {
     return `${clean.slice(0, 3)}-${clean.slice(3, 7)}`;
   };
 
-  if (isLoading) {
+  if (vehicleQuery.isLoading) {
     return (
       <div className="mx-auto max-w-2xl space-y-6">
         <div className="flex items-center gap-4">
@@ -128,6 +124,18 @@ export default function EditVehiclePage({ params }: PageProps) {
       </div>
     );
   }
+
+  if (vehicleQuery.isError || !vehicleQuery.data) {
+    return (
+      <div className="mx-auto max-w-2xl text-center py-12">
+        <h3 className="text-lg font-semibold text-destructive">Erro ao carregar veículo</h3>
+        <p className="text-muted-foreground mb-4">{vehicleQuery.error?.message || 'Veículo não encontrado'}</p>
+        <Button onClick={() => router.back()}>Voltar</Button>
+      </div>
+    );
+  }
+
+  const vehicle = vehicleQuery.data;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -157,44 +165,42 @@ export default function EditVehiclePage({ params }: PageProps) {
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Owner (read-only) */}
-            {customer && (
-              <div className="space-y-2">
-                <Label>Proprietário</Label>
-                <div className="flex items-center gap-3 rounded-lg border border-input bg-muted/50 p-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
-                    <User className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium">{customer.name}</p>
-                    <p className="text-sm text-muted-foreground">{customer.phone}</p>
-                  </div>
+            <div className="space-y-2">
+              <Label>Proprietário</Label>
+              <div className="flex items-center gap-3 rounded-lg border border-input bg-muted/50 p-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+                  <User className="h-4 w-4 text-primary" />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Para alterar o proprietário, exclua este veículo e crie um novo.
-                </p>
+                <div>
+                  <p className="font-medium">{vehicle.customer.name}</p>
+                  <p className="text-sm text-muted-foreground">{vehicle.customer.phone}</p>
+                </div>
               </div>
-            )}
+              <p className="text-xs text-muted-foreground">
+                Para alterar o proprietário, exclua este veículo e crie um novo.
+              </p>
+            </div>
 
             {/* Plate */}
             <div className="space-y-2">
-              <Label htmlFor="plate" required>Placa</Label>
+              <Label htmlFor="plate">Placa *</Label>
               <Input
                 id="plate"
                 placeholder="ABC-1234"
                 {...register('plate', {
                   onChange: (e) => {
-                    e.target.value = formatPlate(e.target.value);
+                    setValue('plate', formatPlate(e.target.value));
                   },
                 })}
                 error={errors.plate?.message}
-                className="uppercase"
+                className="uppercase font-mono"
               />
             </div>
 
             {/* Brand & Model */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="brand" required>Marca</Label>
+                <Label htmlFor="brand">Marca *</Label>
                 <Input
                   id="brand"
                   placeholder="Ex: BMW"
@@ -203,7 +209,7 @@ export default function EditVehiclePage({ params }: PageProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="model" required>Modelo</Label>
+                <Label htmlFor="model">Modelo *</Label>
                 <Input
                   id="model"
                   placeholder="Ex: X5"
@@ -216,7 +222,7 @@ export default function EditVehiclePage({ params }: PageProps) {
             {/* Color & Year */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="color" required>Cor</Label>
+                <Label htmlFor="color">Cor *</Label>
                 <Input
                   id="color"
                   placeholder="Ex: Preta"
@@ -243,8 +249,8 @@ export default function EditVehiclePage({ params }: PageProps) {
               <Button type="button" variant="outline" asChild>
                 <Link href={`/dashboard/vehicles/${id}`}>Cancelar</Link>
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
+              <Button type="submit" disabled={updateVehicle.isPending}>
+                {updateVehicle.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Salvando...

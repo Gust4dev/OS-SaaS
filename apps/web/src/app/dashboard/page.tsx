@@ -1,4 +1,6 @@
-import { currentUser } from '@clerk/nextjs/server';
+'use client';
+
+import { useUser } from '@clerk/nextjs';
 import {
   ClipboardList,
   Calendar,
@@ -7,14 +9,72 @@ import {
   Plus,
   Clock,
   ArrowRight,
+  Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { trpc } from '@/lib/trpc/provider';
 
-export default async function DashboardPage() {
-  const user = await currentUser();
+// Helper to get today's date range
+const getTodayRange = () => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+};
+
+export default function DashboardPage() {
+  const { user, isLoaded: isUserLoaded } = useUser();
+  const { start: todayStart, end: todayEnd } = getTodayRange();
+
+  // Queries
+  const statsQuery = trpc.order.getStats.useQuery();
+  
+  const recentOrdersQuery = trpc.order.getRecent.useQuery({ limit: 5 });
+  
+  const todayScheduleQuery = trpc.order.list.useQuery({
+    page: 1,
+    limit: 10,
+    status: ['AGENDADO'],
+    dateFrom: todayStart,
+    dateTo: todayEnd,
+  });
+
+  // We use customer list just to get the total count
+  const customerCountQuery = trpc.customer.list.useQuery({ limit: 1 });
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
+  const formatTime = (date: string | Date) => {
+    return new Intl.DateTimeFormat('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(date));
+  };
+
+  const isLoading = 
+    statsQuery.isLoading || 
+    recentOrdersQuery.isLoading || 
+    todayScheduleQuery.isLoading || 
+    customerCountQuery.isLoading ||
+    !isUserLoaded;
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[50vh] flex-col items-center justify-center space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Carregando painel...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -42,28 +102,26 @@ export default async function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Agendamentos Hoje"
-          value="5"
-          description="+2 desde ontem"
+          value={statsQuery.data?.todayOrders.toString() || '0'}
+          description="Para hoje"
           icon={Calendar}
-          trend="up"
         />
         <StatCard
           title="OS em Andamento"
-          value="3"
-          description="2 aguardando"
+          value={statsQuery.data?.inProgress.toString() || '0'}
+          description="Em execução/vistoria"
           icon={ClipboardList}
         />
         <StatCard
-          title="Clientes Ativos"
-          value="127"
-          description="+12 este mês"
+          title="Clientes Totais"
+          value={customerCountQuery.data?.pagination.total.toString() || '0'}
+          description="Cadastrados"
           icon={Users}
-          trend="up"
         />
         <StatCard
-          title="Faturamento Mensal"
-          value="R$ 15.420"
-          description="+18% vs mês anterior"
+          title="Faturamento Mês"
+          value={formatCurrency(statsQuery.data?.monthRevenue || 0)}
+          description="Recebido em pagamentos"
           icon={TrendingUp}
           trend="up"
         />
@@ -78,42 +136,24 @@ export default async function DashboardPage() {
               <CardTitle className="text-lg">Agenda de Hoje</CardTitle>
               <CardDescription>Próximos agendamentos</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/dashboard/scheduling">
-                Ver todos
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            <ScheduleItem
-              time="09:00"
-              customer="João Silva"
-              vehicle="BMW X5 - ABC-1234"
-              service="PPF Frontal"
-              status="confirmed"
-            />
-            <ScheduleItem
-              time="11:30"
-              customer="Maria Santos"
-              vehicle="Mercedes C200 - XYZ-5678"
-              service="Ceramic Coating"
-              status="confirmed"
-            />
-            <ScheduleItem
-              time="14:00"
-              customer="Carlos Oliveira"
-              vehicle="Audi A4 - DEF-9012"
-              service="Vitrificação"
-              status="pending"
-            />
-            <ScheduleItem
-              time="16:30"
-              customer="Ana Costa"
-              vehicle="Porsche 911 - GHI-3456"
-              service="PPF Full"
-              status="confirmed"
-            />
+            {!todayScheduleQuery.data?.orders.length ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Sem agendamentos para hoje.
+              </p>
+            ) : (
+              todayScheduleQuery.data.orders.map((order) => (
+                <ScheduleItem
+                  key={order.id}
+                  time={formatTime(order.scheduledAt)}
+                  customer={order.vehicle.customer.name}
+                  vehicle={`${order.vehicle.brand} ${order.vehicle.model}`}
+                  service={`${order.items.length} serviço(s)`}
+                  status="confirmed"
+                />
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -122,7 +162,7 @@ export default async function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
               <CardTitle className="text-lg">Ordens Recentes</CardTitle>
-              <CardDescription>Últimas atualizações</CardDescription>
+              <CardDescription>Últimas criadas</CardDescription>
             </div>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/dashboard/orders">
@@ -132,30 +172,21 @@ export default async function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            <OrderItem
-              code="OS-2024-001"
-              customer="João Silva"
-              total="R$ 4.500,00"
-              status="em_execucao"
-            />
-            <OrderItem
-              code="OS-2024-002"
-              customer="Maria Santos"
-              total="R$ 2.800,00"
-              status="aguardando"
-            />
-            <OrderItem
-              code="OS-2024-003"
-              customer="Pedro Costa"
-              total="R$ 6.200,00"
-              status="concluido"
-            />
-            <OrderItem
-              code="OS-2024-004"
-              customer="Ana Ferreira"
-              total="R$ 3.100,00"
-              status="agendado"
-            />
+            {!recentOrdersQuery.data?.length ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Nenhuma ordem recente.
+              </p>
+            ) : (
+              recentOrdersQuery.data.map((order) => (
+                <OrderItem
+                  key={order.id}
+                  code={order.code}
+                  customer={order.vehicle.customer.name}
+                  total={formatCurrency(Number(order.total))}
+                  status={order.status}
+                />
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
@@ -169,15 +200,15 @@ export default async function DashboardPage() {
           icon={Users}
         />
         <QuickActionCard
-          href="/dashboard/scheduling/new"
-          title="Novo Agendamento"
-          description="Agendar serviço"
-          icon={Calendar}
-        />
-        <QuickActionCard
           href="/dashboard/orders/new"
           title="Nova OS"
           description="Criar ordem"
+          icon={Calendar}
+        />
+        <QuickActionCard
+          href="/dashboard/products"
+          title="Produtos"
+          description="Controle de estoque"
           icon={ClipboardList}
         />
         <QuickActionCard
@@ -218,17 +249,7 @@ function StatCard({
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
-        <p
-          className={`text-xs ${
-            trend === 'up'
-              ? 'text-emerald-600'
-              : trend === 'down'
-                ? 'text-red-600'
-                : 'text-muted-foreground'
-          }`}
-        >
-          {description}
-        </p>
+        <p className="text-xs text-muted-foreground">{description}</p>
       </CardContent>
     </Card>
   );
@@ -256,18 +277,6 @@ function ScheduleItem({
       <div className="flex-1 space-y-1">
         <div className="flex items-center gap-2">
           <span className="font-medium">{customer}</span>
-          <Badge
-            variant={
-              status === 'confirmed'
-                ? 'success'
-                : status === 'pending'
-                  ? 'warning'
-                  : 'destructive'
-            }
-            className="text-[10px]"
-          >
-            {status === 'confirmed' ? 'Confirmado' : status === 'pending' ? 'Pendente' : 'Cancelado'}
-          </Badge>
         </div>
         <p className="text-sm text-muted-foreground">
           {vehicle} • {service}
@@ -286,16 +295,18 @@ function OrderItem({
   code: string;
   customer: string;
   total: string;
-  status: 'agendado' | 'em_execucao' | 'aguardando' | 'concluido';
+  status: string;
 }) {
-  const statusConfig = {
-    agendado: { label: 'Agendado', variant: 'secondary' as const },
-    em_execucao: { label: 'Em Execução', variant: 'info' as const },
-    aguardando: { label: 'Aguardando', variant: 'warning' as const },
-    concluido: { label: 'Concluído', variant: 'success' as const },
+  const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+    AGENDADO: { label: 'Agendado', variant: 'secondary' },
+    EM_VISTORIA: { label: 'Em Vistoria', variant: 'outline' },
+    EM_EXECUCAO: { label: 'Em Execução', variant: 'default' }, // Using default (blue-ish usually or black) or we can enable custom variants if they exist
+    AGUARDANDO_PAGAMENTO: { label: 'Aguardando Pag.', variant: 'secondary' },
+    CONCLUIDO: { label: 'Concluído', variant: 'outline' }, // Replaced 'success' which might not exist in standard badge
+    CANCELADO: { label: 'Cancelado', variant: 'destructive' },
   };
 
-  const config = statusConfig[status];
+  const config = statusConfig[status] || { label: status, variant: 'outline' };
 
   return (
     <div className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted/50">

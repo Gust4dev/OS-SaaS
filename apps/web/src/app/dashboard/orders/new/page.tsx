@@ -27,34 +27,8 @@ import {
   Label,
   Badge,
 } from '@/components/ui';
-
-// Mock data
-const mockCustomers = [
-  { id: 'c1', name: 'João Silva', phone: '(11) 99999-1234', vehicles: [
-    { id: 'v1', plate: 'ABC-1234', brand: 'BMW', model: 'X5', color: 'Preta', year: 2023 },
-  ]},
-  { id: 'c2', name: 'Maria Santos', phone: '(11) 98888-5678', vehicles: [
-    { id: 'v2', plate: 'XYZ-5678', brand: 'Mercedes', model: 'C300', color: 'Branca', year: 2024 },
-  ]},
-  { id: 'c3', name: 'Pedro Oliveira', phone: '(11) 97777-9012', vehicles: [
-    { id: 'v3', plate: 'DEF-9012', brand: 'Porsche', model: '911', color: 'Vermelha', year: 2023 },
-    { id: 'v4', plate: 'GHI-3456', brand: 'Audi', model: 'RS5', color: 'Cinza', year: 2024 },
-  ]},
-];
-
-const mockServices = [
-  { id: 's1', name: 'PPF Frontal', basePrice: 4500, estimatedTime: 480 },
-  { id: 's2', name: 'PPF Full', basePrice: 12000, estimatedTime: 1440 },
-  { id: 's3', name: 'Ceramic Coating', basePrice: 2800, estimatedTime: 360 },
-  { id: 's4', name: 'Vitrificação de Vidros', basePrice: 450, estimatedTime: 90 },
-  { id: 's5', name: 'Polimento Técnico', basePrice: 800, estimatedTime: 240 },
-];
-
-const mockUsers = [
-  { id: 'u1', name: 'Carlos Técnico' },
-  { id: 'u2', name: 'Ana Técnica' },
-  { id: 'u3', name: 'Roberto Instalador' },
-];
+import { trpc } from '@/lib/trpc/provider';
+import { toast } from 'sonner';
 
 interface SelectedItem {
   serviceId: string;
@@ -87,7 +61,6 @@ export default function NewOrderPage() {
   const preselectedVehicleId = searchParams.get('vehicleId');
 
   const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [serviceSearch, setServiceSearch] = useState('');
 
@@ -100,17 +73,40 @@ export default function NewOrderPage() {
     assignedToId: '',
   });
 
-  // Filter customers
-  const filteredCustomers = mockCustomers.filter((c) =>
-    c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-    c.phone.includes(customerSearch)
+  // tRPC Queries
+  const customersQuery = trpc.customer.list.useQuery(
+    { search: customerSearch, limit: 10 },
+    { keepPreviousData: true }
   );
 
-  const selectedCustomer = mockCustomers.find((c) => c.id === orderData.customerId);
-  const selectedVehicle = selectedCustomer?.vehicles.find((v) => v.id === orderData.vehicleId);
+  const vehiclesQuery = trpc.vehicle.list.useQuery(
+    { customerId: orderData.customerId },
+    { enabled: !!orderData.customerId }
+  );
 
-  // Filter services
-  const filteredServices = mockServices.filter((s) =>
+  const servicesQuery = trpc.service.listActive.useQuery();
+
+  const usersQuery = trpc.user.listForSelect.useQuery();
+
+  const createOrder = trpc.order.create.useMutation({
+    onSuccess: () => {
+      toast.success('Ordem de serviço criada com sucesso!');
+      router.push('/dashboard/orders');
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Erro ao criar ordem de serviço');
+    },
+  });
+
+  // Derived state
+  const selectedCustomer = customersQuery.data?.customers.find(c => c.id === orderData.customerId);
+  const filteredCustomers = customersQuery.data?.customers || [];
+  
+  const customerVehicles = vehiclesQuery.data?.vehicles || [];
+  const selectedVehicle = customerVehicles.find(v => v.id === orderData.vehicleId);
+
+  const availableServices = servicesQuery.data || [];
+  const filteredServices = availableServices.filter((s) =>
     s.name.toLowerCase().includes(serviceSearch.toLowerCase())
   );
 
@@ -132,17 +128,17 @@ export default function NewOrderPage() {
   const canProceed = () => {
     switch (currentStep) {
       case 1:
-        return orderData.customerId && orderData.vehicleId;
+        return !!(orderData.customerId && orderData.vehicleId);
       case 2:
         return orderData.items.length > 0;
       case 3:
-        return orderData.scheduledAt && orderData.assignedToId;
+        return !!(orderData.scheduledAt && orderData.assignedToId);
       default:
         return false;
     }
   };
 
-  const handleAddService = (service: typeof mockServices[0]) => {
+  const handleAddService = (service: typeof availableServices[0]) => {
     const existing = orderData.items.find((i) => i.serviceId === service.id);
     if (existing) return;
 
@@ -153,7 +149,7 @@ export default function NewOrderPage() {
         {
           serviceId: service.id,
           name: service.name,
-          price: service.basePrice,
+          price: Number(service.basePrice),
           quantity: 1,
         },
       ],
@@ -177,20 +173,21 @@ export default function NewOrderPage() {
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
-    try {
-      // TODO: Call tRPC mutation
-      console.log('Create order:', {
-        ...orderData,
-        scheduledAt: new Date(`${orderData.scheduledAt}T${orderData.scheduledTime}`),
-      });
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      router.push('/dashboard/orders');
-    } catch (error) {
-      console.error('Error creating order:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
+    const scheduledDateTime = new Date(`${orderData.scheduledAt}T${orderData.scheduledTime}`);
+    
+    await createOrder.mutateAsync({
+      customerId: orderData.customerId, // Not required by schema but good context
+      vehicleId: orderData.vehicleId,
+      assignedToId: orderData.assignedToId,
+      scheduledAt: scheduledDateTime,
+      discountType: orderData.discountType,
+      discountValue: orderData.discountValue,
+      items: orderData.items.map(item => ({
+        serviceId: item.serviceId,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+    });
   };
 
   return (
@@ -279,6 +276,18 @@ export default function NewOrderPage() {
 
                 {/* Customer List */}
                 <div className="max-h-48 space-y-2 overflow-y-auto">
+                  {customersQuery.isLoading && (
+                    <div className="flex justify-center p-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                  
+                  {!customersQuery.isLoading && filteredCustomers.length === 0 && (
+                    <p className="text-center text-sm text-muted-foreground py-4">
+                      Nenhum cliente encontrado.
+                    </p>
+                  )}
+
                   {filteredCustomers.map((customer) => (
                     <button
                       key={customer.id}
@@ -286,7 +295,7 @@ export default function NewOrderPage() {
                       onClick={() => setOrderData((prev) => ({
                         ...prev,
                         customerId: customer.id,
-                        vehicleId: customer.vehicles.length === 1 ? customer.vehicles[0].id : '',
+                        vehicleId: '', // Reset vehicle when customer changes
                       }))}
                       className={`w-full rounded-lg border p-3 text-left transition-colors ${
                         orderData.customerId === customer.id
@@ -299,7 +308,7 @@ export default function NewOrderPage() {
                           <p className="font-medium">{customer.name}</p>
                           <p className="text-sm text-muted-foreground">{customer.phone}</p>
                         </div>
-                        <Badge variant="secondary">{customer.vehicles.length} veículo(s)</Badge>
+                        {/* Note: We don't have vehicle count in list query, would need to add to router if needed */}
                       </div>
                     </button>
                   ))}
@@ -307,11 +316,16 @@ export default function NewOrderPage() {
               </div>
 
               {/* Vehicle Selection */}
-              {selectedCustomer && (
+              {orderData.customerId && (
                 <div className="space-y-3">
                   <Label>Veículo</Label>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {selectedCustomer.vehicles.map((vehicle) => (
+                  {vehiclesQuery.isLoading ? (
+                    <div className="flex justify-center p-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                    {customerVehicles.map((vehicle) => (
                       <button
                         key={vehicle.id}
                         type="button"
@@ -336,13 +350,14 @@ export default function NewOrderPage() {
                       </button>
                     ))}
                     <Link
-                      href={`/dashboard/vehicles/new?customerId=${selectedCustomer.id}&returnTo=/dashboard/orders/new`}
+                      href={`/dashboard/vehicles/new?customerId=${orderData.customerId}&returnTo=/dashboard/orders/new`}
                       className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-input p-4 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
                     >
                       <Plus className="h-5 w-5" />
                       Adicionar Veículo
                     </Link>
                   </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -372,26 +387,32 @@ export default function NewOrderPage() {
                   />
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {filteredServices.map((service) => {
-                    const isSelected = orderData.items.some((i) => i.serviceId === service.id);
-                    return (
-                      <button
-                        key={service.id}
-                        type="button"
-                        onClick={() => handleAddService(service)}
-                        disabled={isSelected}
-                        className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
-                          isSelected
-                            ? 'border-primary/50 bg-primary/10 text-primary cursor-default'
-                            : 'border-input hover:bg-muted/50'
-                        }`}
-                      >
-                        {service.name} - {formatCurrency(service.basePrice)}
-                      </button>
-                    );
-                  })}
-                </div>
+                {servicesQuery.isLoading ? (
+                  <div className="flex justify-center p-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {filteredServices.map((service) => {
+                      const isSelected = orderData.items.some((i) => i.serviceId === service.id);
+                      return (
+                        <button
+                          key={service.id}
+                          type="button"
+                          onClick={() => handleAddService(service)}
+                          disabled={isSelected}
+                          className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+                            isSelected
+                              ? 'border-primary/50 bg-primary/10 text-primary cursor-default'
+                              : 'border-input hover:bg-muted/50'
+                          }`}
+                        >
+                          {service.name} - {formatCurrency(Number(service.basePrice))}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Selected Items */}
@@ -478,22 +499,28 @@ export default function NewOrderPage() {
               {/* Assigned User */}
               <div className="space-y-3">
                 <Label>Responsável</Label>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {mockUsers.map((user) => (
-                    <button
-                      key={user.id}
-                      type="button"
-                      onClick={() => setOrderData((prev) => ({ ...prev, assignedToId: user.id }))}
-                      className={`rounded-lg border p-3 text-center transition-colors ${
-                        orderData.assignedToId === user.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-input hover:bg-muted/50'
-                      }`}
-                    >
-                      {user.name}
-                    </button>
-                  ))}
-                </div>
+                {usersQuery.isLoading ? (
+                  <div className="flex justify-center p-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {usersQuery.data?.map((user) => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => setOrderData((prev) => ({ ...prev, assignedToId: user.id }))}
+                        className={`rounded-lg border p-3 text-center transition-colors ${
+                          orderData.assignedToId === user.id
+                            ? 'border-primary bg-primary/5'
+                            : 'border-input hover:bg-muted/50'
+                        }`}
+                      >
+                        {user.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Discount */}
@@ -534,7 +561,7 @@ export default function NewOrderPage() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Cliente:</span>
-                    <span>{selectedCustomer?.name}</span>
+                    <span>{customersQuery.data?.customers.find(c => c.id === orderData.customerId)?.name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Veículo:</span>
@@ -591,9 +618,9 @@ export default function NewOrderPage() {
             <Button
               type="button"
               onClick={handleSubmit}
-              disabled={!canProceed() || isSubmitting}
+              disabled={!canProceed() || createOrder.isPending}
             >
-              {isSubmitting ? (
+              {createOrder.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Criando...

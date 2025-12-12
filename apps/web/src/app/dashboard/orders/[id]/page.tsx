@@ -2,6 +2,7 @@
 
 import { use, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, 
   Pencil, 
@@ -14,6 +15,7 @@ import {
   MoreHorizontal,
   Printer,
   Send,
+  Loader2,
 } from 'lucide-react';
 import { 
   Button, 
@@ -31,52 +33,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui';
 import { StatusBadge, OrderTimeline, PaymentDialog } from '@/components/orders';
+import { trpc } from '@/lib/trpc/provider';
+import { toast } from 'sonner';
 
-// Mock data
-const mockOrder = {
-  id: 'os1',
-  code: 'OS-2024-001',
-  status: 'EM_EXECUCAO',
-  scheduledAt: new Date('2024-12-11T09:00:00'),
-  startedAt: new Date('2024-12-11T09:30:00'),
-  completedAt: null,
-  createdAt: new Date('2024-12-08'),
-  subtotal: 7300,
-  discountType: null,
-  discountValue: null,
-  total: 7300,
-  vehicle: {
-    id: 'v1',
-    plate: 'ABC-1234',
-    brand: 'BMW',
-    model: 'X5',
-    color: 'Preta',
-    year: 2023,
-    customer: {
-      id: 'c1',
-      name: 'João Silva',
-      phone: '(11) 99999-1234',
-      email: 'joao.silva@email.com',
-    },
-  },
-  assignedTo: {
-    id: 'u1',
-    name: 'Carlos Técnico',
-    avatarUrl: null,
-  },
-  createdBy: {
-    id: 'u2',
-    name: 'Ana Gerente',
-  },
-  items: [
-    { id: 'i1', service: { id: 's1', name: 'PPF Frontal' }, customName: null, price: 4500, quantity: 1 },
-    { id: 'i2', service: { id: 's3', name: 'Ceramic Coating' }, customName: null, price: 2800, quantity: 1 },
-  ],
-  payments: [
-    { id: 'p1', method: 'PIX', amount: 3000, paidAt: new Date('2024-12-10'), notes: 'Entrada' },
-  ],
-};
-
+// Valid status transitions (matching backend)
 const validNextStatuses: Record<string, { value: string; label: string }[]> = {
   AGENDADO: [
     { value: 'EM_VISTORIA', label: 'Iniciar Vistoria' },
@@ -109,12 +69,38 @@ interface PageProps {
 
 export default function OrderDetailPage({ params }: PageProps) {
   const { id } = use(params);
+  const router = useRouter();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   
-  const order = mockOrder;
-  const paidAmount = order.payments.reduce((sum, p) => sum + p.amount, 0);
-  const balance = order.total - paidAmount;
+  // Queries
+  const orderQuery = trpc.order.getById.useQuery({ id });
+  const utils = trpc.useUtils();
 
+  // Mutations
+  const updateStatus = trpc.order.updateStatus.useMutation({
+    onSuccess: () => {
+      toast.success('Status atualizado com sucesso');
+      utils.order.getById.invalidate({ id });
+      utils.order.list.invalidate(); // Update list too
+      utils.order.getStats.invalidate(); // Update dashboard
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Erro ao atualizar status');
+    },
+  });
+
+  const addPayment = trpc.order.addPayment.useMutation({
+    onSuccess: () => {
+      toast.success('Pagamento registrado com sucesso');
+      utils.order.getById.invalidate({ id });
+      setPaymentDialogOpen(false);
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Erro ao registrar pagamento');
+    },
+  });
+
+  // Helpers
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -122,36 +108,69 @@ export default function OrderDetailPage({ params }: PageProps) {
     }).format(value);
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (dateString: string | Date) => {
+    if (!dateString) return '';
     return new Intl.DateTimeFormat('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
-    }).format(date);
+    }).format(new Date(dateString));
   };
 
-  const formatDateTime = (date: Date) => {
+  const formatDateTime = (dateString: string | Date) => {
+    if (!dateString) return '';
     return new Intl.DateTimeFormat('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    }).format(date);
+    }).format(new Date(dateString));
   };
 
   const handleStatusChange = (newStatus: string) => {
-    console.log('Change status to:', newStatus);
-    // TODO: Call tRPC mutation
+    updateStatus.mutate({ 
+      id, 
+      status: newStatus as any 
+    });
   };
 
   const handleAddPayment = async (data: { method: string; amount: number; notes?: string }) => {
-    console.log('Add payment:', { orderId: id, ...data });
-    // TODO: Call tRPC mutation
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await addPayment.mutateAsync({
+      orderId: id,
+      method: data.method as any,
+      amount: data.amount,
+      notes: data.notes,
+    });
   };
 
+  if (orderQuery.isLoading) {
+    return (
+      <div className="flexh-[50vh] flex flex-col items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Carregando detalhes da OS...</p>
+      </div>
+    );
+  }
+
+  if (orderQuery.isError || !orderQuery.data) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8">
+        <p className="text-destructive font-medium">Erro ao carregar OS</p>
+        <p className="text-muted-foreground">{orderQuery.error?.message || 'OS não encontrada'}</p>
+        <Button variant="outline" className="mt-4" onClick={() => router.push('/dashboard/orders')}>
+          Voltar para Lista
+        </Button>
+      </div>
+    );
+  }
+
+  const order = orderQuery.data;
   const nextStatuses = validNextStatuses[order.status] || [];
+  
+  // Use pre-calculated values from backend
+  const paidAmount = order.paidAmount ?? 0;
+  const balance = order.balance ?? 0;
 
   return (
     <div className="space-y-6">
@@ -180,7 +199,10 @@ export default function OrderDetailPage({ params }: PageProps) {
           {nextStatuses.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button>
+                <Button disabled={updateStatus.isPending}>
+                  {updateStatus.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
                   Atualizar Status
                 </Button>
               </DropdownMenuTrigger>
@@ -211,7 +233,7 @@ export default function OrderDetailPage({ params }: PageProps) {
                   Editar OS
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.print()}>
                 <Printer className="mr-2 h-4 w-4" />
                 Imprimir
               </DropdownMenuItem>
@@ -313,7 +335,7 @@ export default function OrderDetailPage({ params }: PageProps) {
                       </p>
                     </div>
                     <p className="font-semibold">
-                      {formatCurrency(item.price * item.quantity)}
+                      {formatCurrency(Number(item.price) * item.quantity)}
                     </p>
                   </div>
                 ))}
@@ -325,9 +347,9 @@ export default function OrderDetailPage({ params }: PageProps) {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatCurrency(order.subtotal)}</span>
+                  <span>{formatCurrency(Number(order.subtotal))}</span>
                 </div>
-                {order.discountValue && (
+                {order.discountValue && Number(order.discountValue) > 0 && (
                   <div className="flex justify-between text-sm text-destructive">
                     <span>Desconto</span>
                     <span>-{formatCurrency(Number(order.discountValue))}</span>
@@ -335,7 +357,7 @@ export default function OrderDetailPage({ params }: PageProps) {
                 )}
                 <div className="flex justify-between font-bold text-lg pt-2 border-t">
                   <span>Total</span>
-                  <span>{formatCurrency(order.total)}</span>
+                  <span>{formatCurrency(Number(order.total))}</span>
                 </div>
               </div>
             </CardContent>
@@ -388,7 +410,7 @@ export default function OrderDetailPage({ params }: PageProps) {
                         </p>
                       </div>
                       <p className="font-semibold text-success">
-                        +{formatCurrency(payment.amount)}
+                        +{formatCurrency(Number(payment.amount))}
                       </p>
                     </div>
                   ))}
@@ -422,9 +444,9 @@ export default function OrderDetailPage({ params }: PageProps) {
             <CardContent>
               <OrderTimeline
                 currentStatus={order.status}
-                scheduledAt={order.scheduledAt}
-                startedAt={order.startedAt || undefined}
-                completedAt={order.completedAt || undefined}
+                scheduledAt={new Date(order.scheduledAt)}
+                startedAt={order.startedAt ? new Date(order.startedAt) : undefined}
+                completedAt={order.completedAt ? new Date(order.completedAt) : undefined}
               />
             </CardContent>
           </Card>
@@ -476,7 +498,7 @@ export default function OrderDetailPage({ params }: PageProps) {
         open={paymentDialogOpen}
         onOpenChange={setPaymentDialogOpen}
         orderId={id}
-        totalAmount={order.total}
+        totalAmount={Number(order.total)}
         paidAmount={paidAmount}
         onSubmit={handleAddPayment}
       />
