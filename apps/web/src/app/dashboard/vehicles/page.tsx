@@ -53,6 +53,8 @@ export default function VehiclesPage() {
     page,
     limit: 20,
     search: search || undefined,
+  }, {
+    refetchInterval: 5000,
   });
 
   const deleteMutation = trpc.vehicle.delete.useMutation({

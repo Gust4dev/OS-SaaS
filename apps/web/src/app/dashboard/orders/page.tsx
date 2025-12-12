@@ -43,6 +43,8 @@ export default function OrdersPage() {
     limit: 20,
     search: search || undefined,
     status: selectedStatuses.length > 0 ? selectedStatuses as ('AGENDADO' | 'EM_VISTORIA' | 'EM_EXECUCAO' | 'AGUARDANDO_PAGAMENTO' | 'CONCLUIDO' | 'CANCELADO')[] : undefined,
+  }, {
+    refetchInterval: 5000,
   });
 
   const orders = data?.orders || [];

@@ -31,9 +31,13 @@ export default function DashboardPage() {
   const { start: todayStart, end: todayEnd } = getTodayRange();
 
   // Queries
-  const statsQuery = trpc.order.getStats.useQuery();
+  const statsQuery = trpc.order.getStats.useQuery(undefined, {
+    refetchInterval: 5000,
+  });
   
-  const recentOrdersQuery = trpc.order.getRecent.useQuery({ limit: 5 });
+  const recentOrdersQuery = trpc.order.getRecent.useQuery({ limit: 5 }, {
+    refetchInterval: 5000,
+  });
   
   const todayScheduleQuery = trpc.order.list.useQuery({
     page: 1,
@@ -41,6 +45,8 @@ export default function DashboardPage() {
     status: ['AGENDADO'],
     dateFrom: todayStart,
     dateTo: todayEnd,
+  }, {
+    refetchInterval: 5000,
   });
 
   // We use customer list just to get the total count
