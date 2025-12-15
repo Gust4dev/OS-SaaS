@@ -53,9 +53,38 @@ export function PDFDownloadButton({ orderId }: { orderId: string }) {
 
       // Convert logo to base64 via server proxy if exists
       const logoUrl = publicStatus.tenantContact.logo;
-      if (logoUrl && logoUrl.startsWith('http')) {
-        const base64 = await fetchLogoAsBase64(logoUrl);
-        setLogoBase64(base64);
+      if (logoUrl) {
+        let urlToFetch = logoUrl;
+        
+        // Handle local paths
+        if (logoUrl.startsWith('/')) {
+          urlToFetch = `${window.location.origin}${logoUrl}`;
+        }
+        
+        // Fetch Base64 either via proxy (external) or direct fetch (local/same-origin)
+        if (logoUrl.startsWith('http')) {
+             const base64 = await fetchLogoAsBase64(logoUrl);
+             setLogoBase64(base64);
+        } else {
+            // Local file, try fetching directly
+             try {
+                const response = await fetch(urlToFetch);
+                const blob = await response.blob();
+                
+                await new Promise<void>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        if (typeof reader.result === 'string') {
+                            setLogoBase64(reader.result);
+                        }
+                        resolve();
+                    };
+                    reader.readAsDataURL(blob);
+                });
+             } catch (e) {
+                 console.error('Error fetching local logo:', e);
+             }
+        }
       }
       
       setIsPreparingAssets(false);
@@ -80,7 +109,9 @@ export function PDFDownloadButton({ orderId }: { orderId: string }) {
     ...publicStatus,
     tenantContact: {
       ...publicStatus.tenantContact,
-      logo: logoBase64 || null, // Use base64 or null if conversion failed
+      logo: logoBase64 || (publicStatus.tenantContact.logo?.startsWith('/') 
+        ? `${window.location.origin}${publicStatus.tenantContact.logo}` 
+        : publicStatus.tenantContact.logo),
     },
   };
 

@@ -61,4 +61,5 @@ export {
 } from './select';
 export { Progress } from './progress';
 export { Textarea } from './textarea';
+export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs';
 

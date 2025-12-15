@@ -18,7 +18,8 @@ const isValidPixKey = (key: string): boolean => {
 };
 
 const updateSettingsSchema = z.object({
-    logo: z.string().url().optional().nullable(),
+    name: z.string().min(2, 'Nome muito curto').optional(),
+    logo: z.string().optional().nullable(),
     primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor inválida').optional(),
     secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor inválida').optional(),
     pixKey: z.string().optional().nullable().refine(
@@ -72,6 +73,7 @@ export const settingsRouter = router({
             const tenant = await ctx.db.tenant.update({
                 where: { id: ctx.tenantId! },
                 data: {
+                    name: input.name,
                     logo: input.logo,
                     primaryColor: input.primaryColor,
                     secondaryColor: input.secondaryColor,

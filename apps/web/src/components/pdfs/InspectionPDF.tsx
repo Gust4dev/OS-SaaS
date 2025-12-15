@@ -43,8 +43,8 @@ export const InspectionPDF = ({ data, qrCodeUrl, trackingUrl }: InspectionPDFPro
       justifyContent: 'center',
     },
     logo: {
-      width: 160,
-      height: 60,
+      width: 200,
+      height: 80,
       objectFit: 'contain',
     },
     companyName: {
@@ -198,8 +198,15 @@ export const InspectionPDF = ({ data, qrCodeUrl, trackingUrl }: InspectionPDFPro
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            {data.tenantContact.logo && (data.tenantContact.logo.startsWith('http') || data.tenantContact.logo.startsWith('data:')) ? (
-              <Image src={data.tenantContact.logo} style={styles.logo} />
+            {data.tenantContact.logo ? (
+              <Image 
+                src={
+                  data.tenantContact.logo.startsWith('/') 
+                    ? `${typeof window !== 'undefined' ? window.location.origin : ''}${data.tenantContact.logo}`
+                    : data.tenantContact.logo
+                } 
+                style={styles.logo} 
+              />
             ) : (
               <View>
                 <Text style={styles.companyName}>{data.tenantContact.name || 'Empresa'}</Text>

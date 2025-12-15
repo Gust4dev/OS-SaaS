@@ -9,6 +9,7 @@ import { userRouter } from './user';
 import { settingsRouter } from './settings';
 import { dashboardRouter } from './dashboard';
 import { inspectionRouter } from './inspection';
+import { scheduleRouter } from './schedule';
 
 export const appRouter = router({
     health: healthRouter,
@@ -21,6 +22,7 @@ export const appRouter = router({
     settings: settingsRouter,
     dashboard: dashboardRouter,
     inspection: inspectionRouter,
+    schedule: scheduleRouter,
 });
 
 

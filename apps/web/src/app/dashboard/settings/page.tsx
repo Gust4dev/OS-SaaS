@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowLeft, Save, Loader2, Settings, Palette, CreditCard } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Settings, Palette, CreditCard, Upload, Link as LinkIcon, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import {
   Button,
@@ -17,12 +17,17 @@ import {
   Input,
   Label,
   Skeleton,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
 } from '@/components/ui';
 import { trpc } from '@/lib/trpc/provider';
 import { toast } from 'sonner';
 
 const settingsSchema = z.object({
-  logo: z.string().url('URL inválida').optional().or(z.literal('')),
+  name: z.string().min(2, 'Nome muito curto').optional(),
+  logo: z.string().optional().or(z.literal('')),
   primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor inválida'),
   secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor inválida'),
   pixKey: z.string().optional(),
@@ -38,6 +43,8 @@ type SettingsFormData = z.infer<typeof settingsSchema>;
 export default function SettingsPage() {
   const router = useRouter();
   const utils = trpc.useUtils();
+  const [logoMode, setLogoMode] = useState<'url' | 'upload'>('url');
+  const [isUploading, setIsUploading] = useState(false);
 
   const { data: settings, isLoading } = trpc.settings.get.useQuery();
 
@@ -108,6 +115,7 @@ export default function SettingsPage() {
   } = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
+      name: '',
       logo: '',
       primaryColor: '#DC2626',
       secondaryColor: '#1F2937',
@@ -123,6 +131,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (settings) {
       reset({
+        name: settings.name || '',
         logo: settings.logo || '',
         primaryColor: settings.primaryColor || '#DC2626',
         secondaryColor: settings.secondaryColor || '#1F2937',
@@ -133,11 +142,59 @@ export default function SettingsPage() {
         address: settings.address || '',
         cnpj: settings.cnpj || '',
       });
+      
+      // Check if logo is a local upload to set initial mode
+      if (settings.logo && settings.logo.startsWith('/uploads/')) {
+        setLogoMode('upload');
+      }
     }
   }, [settings, reset]);
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor, selecione uma imagem válida');
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('A imagem deve ter no máximo 2MB');
+      return;
+    }
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('/api/upload/local', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao fazer upload');
+      }
+
+      setValue('logo', data.url, { shouldDirty: true, shouldValidate: true });
+      toast.success('Upload realizado com sucesso!');
+    } catch (error) {
+      console.error('Upload Error:', error);
+      toast.error('Erro ao fazer upload da imagem');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const onSubmit = (data: SettingsFormData) => {
     updateMutation.mutate({
+      name: data.name,
       logo: data.logo || null,
       primaryColor: data.primaryColor,
       secondaryColor: data.secondaryColor,
@@ -151,6 +208,7 @@ export default function SettingsPage() {
   };
 
   const primaryColor = watch('primaryColor');
+  const logoUrl = watch('logo');
 
   if (isLoading) {
     return (
@@ -186,7 +244,7 @@ export default function SettingsPage() {
         </div>
         <Button
           onClick={handleSubmit(onSubmit)}
-          disabled={!isDirty || updateMutation.isPending}
+          disabled={updateMutation.isPending}
         >
           {updateMutation.isPending ? (
             <>
@@ -215,18 +273,82 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Logo */}
+            {/* Nome da Empresa */}
             <div className="space-y-2">
-              <Label htmlFor="logo">URL do Logo</Label>
+              <Label htmlFor="name">Nome da Empresa</Label>
               <Input
-                id="logo"
-                placeholder="https://exemplo.com/logo.png"
-                {...register('logo')}
-                error={errors.logo?.message}
+                id="name"
+                placeholder="Ex: Minha Empresa Ltda"
+                {...register('name')}
+                error={errors.name?.message}
               />
-              <p className="text-xs text-muted-foreground">
-                Recomendado: 200x200px, formato PNG ou SVG
-              </p>
+            </div>
+
+            {/* Logo */}
+            <div className="space-y-4">
+              <Label>Logo do Sistema</Label>
+              
+              {logoUrl && (
+                <div className="mb-4 flex items-center justify-center rounded-lg border bg-muted/50 p-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logoUrl}
+                    alt="Logo Preview"
+                    className="h-20 w-auto object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+
+              <Tabs 
+                value={logoMode} 
+                onValueChange={(val) => setLogoMode(val as 'url' | 'upload')} 
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="url">
+                    <LinkIcon className="mr-2 h-4 w-4" />
+                    URL Externa
+                  </TabsTrigger>
+                  <TabsTrigger value="upload">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload de Arquivo
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="url" className="mt-4 space-y-2">
+                  <Label htmlFor="logo">URL da Imagem</Label>
+                  <Input
+                    id="logo"
+                    placeholder="https://exemplo.com/logo.png"
+                    {...register('logo')}
+                    error={errors.logo?.message}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Cole o link direto da sua imagem hospedada
+                  </p>
+                </TabsContent>
+                
+                <TabsContent value="upload" className="mt-4 space-y-2">
+                  <Label htmlFor="file-upload">Selecionar Arquivo</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="file-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      disabled={isUploading}
+                      className="cursor-pointer"
+                    />
+                    {isUploading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Recomendado: PNG ou SVG, max 2MB. Arquivos locais são salvos em public/uploads.
+                  </p>
+                </TabsContent>
+              </Tabs>
             </div>
 
             {/* Colors */}
