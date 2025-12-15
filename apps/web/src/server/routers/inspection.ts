@@ -7,7 +7,8 @@ import { generateChecklistItems, REQUIRED_CHECKLIST_ITEMS } from '@/lib/Checklis
 const inspectionTypeEnum = z.enum(['entrada', 'intermediaria', 'final']);
 const inspectionStatusEnum = z.enum(['em_andamento', 'concluida']);
 const itemStatusEnum = z.enum(['pendente', 'ok', 'com_avaria']);
-const damageTypeEnum = z.enum(['arranhao', 'amassado', 'trinca', 'pintura', 'outro']);
+const damageTypeEnum = z.enum(['arranhao', 'amassado', 'trinca', 'mancha', 'risco', 'pintura', 'outro']);
+const severityEnum = z.enum(['leve', 'moderado', 'grave']);
 
 // Schemas
 const itemUpdateSchema = z.object({
@@ -15,6 +16,8 @@ const itemUpdateSchema = z.object({
     status: itemStatusEnum,
     photoUrl: z.string().optional(),
     notes: z.string().optional(),
+    damageType: damageTypeEnum.optional(),
+    severity: severityEnum.optional(),
 });
 
 const damageCreateSchema = z.object({
@@ -258,6 +261,8 @@ export const inspectionRouter = router({
                     status: input.status,
                     photoUrl: input.photoUrl,
                     notes: input.notes,
+                    damageType: input.status === 'com_avaria' ? input.damageType : null,
+                    severity: input.status === 'com_avaria' ? input.severity : null,
                     completedAt: input.status !== 'pendente' ? new Date() : null,
                 },
             });
@@ -425,6 +430,7 @@ export const inspectionRouter = router({
                     include: {
                         vehicle: {
                             select: {
+                                plate: true,
                                 model: true,
                                 brand: true,
                                 color: true,
@@ -437,6 +443,9 @@ export const inspectionRouter = router({
                             select: {
                                 name: true,
                                 phone: true,
+                                logo: true,
+                                primaryColor: true,
+                                secondaryColor: true,
                             }
                         },
                         items: {
@@ -473,16 +482,28 @@ export const inspectionRouter = router({
                     orderBy: { createdAt: 'asc' },
                 });
 
+                console.log('[getPublicStatus] OrderId:', input.orderId);
+                console.log('[getPublicStatus] Found inspections:', inspections.length);
+                inspections.forEach(i => {
+                    console.log(`  - ${i.type}: ${i.status}, ${i.items.length} items`);
+                });
+
                 return {
                     id: order.id,
                     status: order.status,
                     customerName: order.vehicle.customer?.name?.split(' ')[0] || 'Cliente',
                     vehicleName: `${order.vehicle.brand} ${order.vehicle.model}`,
-                    vehicleColor: order.vehicle.color,
+                    vehicleColor: order.vehicle.color || 'N/A',
+                    vehiclePlate: order.vehicle.plate
+                        ? order.vehicle.plate.substring(0, 3) + '****'
+                        : null,
                     tenantContact: {
                         name: order.tenant.name,
                         whatsapp: order.tenant.phone,
                         phone: order.tenant.phone,
+                        logo: order.tenant.logo,
+                        primaryColor: order.tenant.primaryColor || '#DC2626',
+                        secondaryColor: order.tenant.secondaryColor || '#1F2937',
                     },
                     services: order.items.map(item => ({
                         name: item.customName || item.service?.name || 'Serviço',
@@ -502,6 +523,8 @@ export const inspectionRouter = router({
                             photoUrl: item.photoUrl,
                             notes: item.notes,
                             isCritical: item.isCritical,
+                            damageType: item.damageType,
+                            severity: item.severity,
                         })),
                         damages: inspection.damages.map(d => ({
                             id: d.id,

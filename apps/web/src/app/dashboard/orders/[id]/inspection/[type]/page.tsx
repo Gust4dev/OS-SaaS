@@ -31,6 +31,10 @@ import {
   INSPECTION_CHECKLIST, 
   INSPECTION_TYPE_LABELS,
   ITEM_STATUS_LABELS,
+  DAMAGE_TYPE_OPTIONS,
+  SEVERITY_OPTIONS,
+  DAMAGE_TYPE_LABELS,
+  SEVERITY_LABELS,
 } from '@/lib/ChecklistDefinition';
 
 interface PageProps {
@@ -102,9 +106,11 @@ export default function InspectionChecklistPage({ params }: PageProps) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
+        // Apenas salvar a foto, NÃO alterar o status
+        // O usuário escolhe depois se está OK ou tem avaria
         updateItem.mutate({
           itemId,
-          status: 'ok',
+          status: 'pendente',
           photoUrl: base64,
         });
         setUploadingItemId(null);
@@ -116,11 +122,13 @@ export default function InspectionChecklistPage({ params }: PageProps) {
     }
   };
 
-  const handleMarkWithDamage = (itemId: string, notes: string) => {
+  const handleMarkWithDamage = (itemId: string, data: { notes: string; damageType: string; severity: string }) => {
     updateItem.mutate({
       itemId,
       status: 'com_avaria',
-      notes,
+      notes: data.notes,
+      damageType: data.damageType as 'arranhao' | 'amassado' | 'trinca' | 'mancha' | 'risco' | 'pintura' | 'outro',
+      severity: data.severity as 'leve' | 'moderado' | 'grave',
     });
   };
 
@@ -308,7 +316,7 @@ export default function InspectionChecklistPage({ params }: PageProps) {
                       isUploading={uploadingItemId === item.id}
                       onUpload={(file) => handleFileUpload(item.id, file)}
                       onMarkOk={() => handleMarkOk(item.id)}
-                      onMarkDamage={(notes) => handleMarkWithDamage(item.id, notes)}
+                      onMarkDamage={(data) => handleMarkWithDamage(item.id, data)}
                       disabled={inspection.status === 'concluida'}
                     />
                   ))}
@@ -356,17 +364,21 @@ interface ChecklistItemCardProps {
     notes: string | null;
     isRequired: boolean;
     isCritical: boolean;
+    damageType?: string | null;
+    severity?: string | null;
   };
   isUploading: boolean;
   disabled: boolean;
   onUpload: (file: File) => void;
   onMarkOk: () => void;
-  onMarkDamage: (notes: string) => void;
+  onMarkDamage: (data: { notes: string; damageType: string; severity: string }) => void;
 }
 
 function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, onMarkDamage }: ChecklistItemCardProps) {
-  const [showNotes, setShowNotes] = useState(false);
+  const [showDamageForm, setShowDamageForm] = useState(false);
   const [notes, setNotes] = useState(item.notes || '');
+  const [damageType, setDamageType] = useState(item.damageType || '');
+  const [severity, setSeverity] = useState(item.severity || '');
 
   const statusInfo = ITEM_STATUS_LABELS[item.status] || { label: item.status, color: 'gray' };
 
@@ -375,6 +387,12 @@ function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, on
     if (file) {
       onUpload(file);
     }
+  };
+
+  const handleConfirmDamage = () => {
+    if (!damageType || !severity) return;
+    onMarkDamage({ notes, damageType, severity });
+    setShowDamageForm(false);
   };
 
   return (
@@ -387,19 +405,45 @@ function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, on
         {/* Photo Preview / Upload Button */}
         <div className="flex-shrink-0">
           {item.photoUrl ? (
-            <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted">
+            <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted group">
               <img 
                 src={item.photoUrl} 
                 alt={item.label}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute bottom-0 right-0 bg-green-500 rounded-tl-lg p-1">
-                <Check className="h-3 w-3 text-white" />
-              </div>
+              {/* Status indicator based on actual status, not just photo presence */}
+              {item.status === 'ok' && (
+                <div className="absolute bottom-0 right-0 bg-green-500 rounded-tl-lg p-1">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              )}
+              {item.status === 'com_avaria' && (
+                <div className="absolute bottom-0 right-0 bg-amber-500 rounded-tl-lg p-1">
+                  <AlertTriangle className="h-3 w-3 text-white" />
+                </div>
+              )}
+              {/* Allow changing photo if still pending */}
+              {item.status === 'pendente' && !disabled && (
+                <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handleFileChange}
+                    disabled={disabled || isUploading}
+                  />
+                  <Camera className="h-6 w-6 text-white" />
+                </label>
+              )}
             </div>
           ) : item.status === 'ok' ? (
             <div className="flex items-center justify-center w-16 h-16 rounded-lg bg-green-100 dark:bg-green-900/30">
               <Check className="h-8 w-8 text-green-600" />
+            </div>
+          ) : item.status === 'com_avaria' ? (
+            <div className="flex items-center justify-center w-16 h-16 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+              <AlertTriangle className="h-8 w-8 text-amber-600" />
             </div>
           ) : (
             <label className={`
@@ -442,6 +486,29 @@ function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, on
             </Badge>
           </div>
 
+          {/* Damage info display */}
+          {item.status === 'com_avaria' && (item.damageType || item.severity) && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {item.damageType && (
+                <Badge variant="outline" className="text-amber-700 border-amber-300">
+                  {DAMAGE_TYPE_LABELS[item.damageType] || item.damageType}
+                </Badge>
+              )}
+              {item.severity && (
+                <Badge 
+                  variant="outline" 
+                  className={`
+                    ${item.severity === 'leve' ? 'text-yellow-700 border-yellow-300' : ''}
+                    ${item.severity === 'moderado' ? 'text-orange-700 border-orange-300' : ''}
+                    ${item.severity === 'grave' ? 'text-red-700 border-red-300' : ''}
+                  `}
+                >
+                  {SEVERITY_LABELS[item.severity]?.label || item.severity}
+                </Badge>
+              )}
+            </div>
+          )}
+
           {/* Notes */}
           {item.notes && (
             <p className="text-sm text-muted-foreground mt-2">{item.notes}</p>
@@ -449,49 +516,90 @@ function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, on
 
           {/* Actions for pending items */}
           {item.status === 'pendente' && !disabled && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {/* Mark as OK without photo */}
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                onClick={onMarkOk}  
-              >
-                <Check className="h-3 w-3 mr-1" />
-                OK sem avaria
-              </Button>
+            <div className="mt-3 space-y-3">
+              {!showDamageForm ? (
+                <div className="flex flex-wrap gap-2">
+                  {/* Mark as OK without photo */}
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                    onClick={onMarkOk}  
+                  >
+                    <Check className="h-3 w-3 mr-1" />
+                    OK sem avaria
+                  </Button>
 
-              {/* Mark with damage */}
-              {!showNotes ? (
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="text-amber-600 hover:text-amber-700"
-                  onClick={() => setShowNotes(true)}
-                >
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  Com avaria
-                </Button>
+                  {/* Mark with damage */}
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-amber-600 hover:text-amber-700"
+                    onClick={() => setShowDamageForm(true)}
+                  >
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    Com avaria
+                  </Button>
+                </div>
               ) : (
-                <div className="w-full space-y-2 mt-2">
-                  <Textarea
-                    placeholder="Descreva a avaria encontrada..."
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={2}
-                  />
+                <div className="w-full space-y-3 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Registrar Avaria</p>
+                  
+                  {/* Damage Type Select */}
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Tipo de Avaria *</label>
+                    <select 
+                      className="w-full p-2 rounded-md border bg-background text-sm"
+                      value={damageType}
+                      onChange={(e) => setDamageType(e.target.value)}
+                    >
+                      <option value="">Selecione...</option>
+                      {DAMAGE_TYPE_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Severity Select */}
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Gravidade *</label>
+                    <select 
+                      className="w-full p-2 rounded-md border bg-background text-sm"
+                      value={severity}
+                      onChange={(e) => setSeverity(e.target.value)}
+                    >
+                      <option value="">Selecione...</option>
+                      {SEVERITY_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</label>
+                    <Textarea
+                      placeholder="Descreva detalhes adicionais..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={2}
+                    />
+                  </div>
+
+                  {/* Actions */}
                   <div className="flex gap-2">
                     <Button 
                       size="sm" 
                       variant="destructive"
-                      onClick={() => onMarkDamage(notes)}
+                      onClick={handleConfirmDamage}
+                      disabled={!damageType || !severity}
                     >
                       Confirmar Avaria
                     </Button>
                     <Button 
                       size="sm" 
                       variant="ghost"
-                      onClick={() => setShowNotes(false)}
+                      onClick={() => setShowDamageForm(false)}
                     >
                       Cancelar
                     </Button>

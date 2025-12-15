@@ -343,6 +343,8 @@ model InspectionItem {
   photoUrl     String?
   notes        String?
   status       String     @default("pendente") // pendente, ok, com_avaria
+  damageType   String?    // arranhao, amassado, trinca, mancha, risco, outro
+  severity     String?    // leve, moderado, grave
   completedAt  DateTime?
   createdAt    DateTime   @default(now())
 

@@ -119,3 +119,41 @@ export const ITEM_STATUS_LABELS: Record<string, { label: string; color: string }
     ok: { label: 'OK', color: 'green' },
     com_avaria: { label: 'Com Avaria', color: 'red' },
 };
+
+/**
+ * Tipos de avaria
+ */
+export const DAMAGE_TYPE_OPTIONS = [
+    { value: 'arranhao', label: 'Arranhão' },
+    { value: 'amassado', label: 'Amassado' },
+    { value: 'trinca', label: 'Trinca' },
+    { value: 'mancha', label: 'Mancha' },
+    { value: 'risco', label: 'Risco' },
+    { value: 'pintura', label: 'Problema de Pintura' },
+    { value: 'outro', label: 'Outro' },
+] as const;
+
+export const DAMAGE_TYPE_LABELS: Record<string, string> = {
+    arranhao: 'Arranhão',
+    amassado: 'Amassado',
+    trinca: 'Trinca',
+    mancha: 'Mancha',
+    risco: 'Risco',
+    pintura: 'Problema de Pintura',
+    outro: 'Outro',
+};
+
+/**
+ * Níveis de severidade
+ */
+export const SEVERITY_OPTIONS = [
+    { value: 'leve', label: 'Leve', color: 'yellow' },
+    { value: 'moderado', label: 'Moderado', color: 'orange' },
+    { value: 'grave', label: 'Grave', color: 'red' },
+] as const;
+
+export const SEVERITY_LABELS: Record<string, { label: string; color: string }> = {
+    leve: { label: 'Leve', color: 'yellow' },
+    moderado: { label: 'Moderado', color: 'orange' },
+    grave: { label: 'Grave', color: 'red' },
+};
