@@ -27,6 +27,25 @@ const customerFormSchema = z.object({
   document: z.string().optional(),
   notes: z.string().optional(),
   whatsappOptIn: z.boolean().default(true),
+  birthDate: z.string().optional(),
+  instagram: z.string().optional(),
+  // Quick vehicle registration
+  includeVehicle: z.boolean().default(false),
+  vehicle: z.object({
+    plate: z.string().min(7, 'Placa inválida').optional().or(z.literal('')),
+    brand: z.string().min(2, 'Marca obrigatória').optional().or(z.literal('')),
+    model: z.string().min(2, 'Modelo obrigatório').optional().or(z.literal('')),
+    color: z.string().min(2, 'Cor obrigatória').optional().or(z.literal('')),
+    year: z.string().transform(val => parseInt(val) || undefined).optional(),
+  }).optional(),
+  redirectToOrder: z.boolean().default(false),
+}).superRefine((data, ctx) => {
+  if (data.includeVehicle) {
+    if (!data.vehicle?.plate) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Placa obrigatória", path: ["vehicle", "plate"] });
+    if (!data.vehicle?.brand) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Marca obrigatória", path: ["vehicle", "brand"] });
+    if (!data.vehicle?.model) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Modelo obrigatório", path: ["vehicle", "model"] });
+    if (!data.vehicle?.color) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Cor obrigatória", path: ["vehicle", "color"] });
+  }
 });
 
 type CustomerFormData = z.infer<typeof customerFormSchema>;
@@ -49,15 +68,32 @@ export default function NewCustomerPage() {
       document: '',
       notes: '',
       whatsappOptIn: true,
+      includeVehicle: false,
+      redirectToOrder: false,
+      vehicle: {
+        plate: '',
+        brand: '',
+        model: '',
+        color: '',
+        year: undefined,
+      },
     },
   });
+
+  const includeVehicle = watch('includeVehicle');
 
   const whatsappOptIn = watch('whatsappOptIn');
 
   const createMutation = trpc.customer.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (newCustomer) => {
       toast.success('Cliente cadastrado com sucesso');
-      router.push('/dashboard/customers');
+      const shouldRedirect = watch('redirectToOrder');
+      
+      if (shouldRedirect) {
+        router.push(`/dashboard/orders/new?customerId=${newCustomer.id}`);
+      } else {
+        router.push('/dashboard/customers');
+      }
     },
     onError: (error) => {
       toast.error(error.message);
@@ -70,8 +106,18 @@ export default function NewCustomerPage() {
       phone: data.phone.replace(/\D/g, ''),
       email: data.email || undefined,
       document: data.document || undefined,
+      // Handle date conversion locally
+      birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
+      instagram: data.instagram || undefined,
       notes: data.notes || undefined,
       whatsappOptIn: data.whatsappOptIn,
+      vehicle: data.includeVehicle && data.vehicle ? {
+        plate: data.vehicle.plate || '',
+        brand: data.vehicle.brand || '',
+        model: data.vehicle.model || '',
+        color: data.vehicle.color || '',
+        year: typeof data.vehicle.year === 'number' ? data.vehicle.year : undefined,
+      } : undefined,
     });
   };
 
@@ -197,6 +243,114 @@ export default function NewCustomerPage() {
                 })}
                 error={errors.document?.message}
               />
+            </div>
+
+            {/* Birth Date & Instagram */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="birthDate">Data de Nascimento</Label>
+                <Input
+                  id="birthDate"
+                  type="date"
+                  {...register('birthDate')}
+                  error={errors.birthDate?.message}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="instagram">Instagram</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-muted-foreground">@</span>
+                  <Input
+                    id="instagram"
+                    className="pl-7"
+                    placeholder="usuario"
+                    {...register('instagram')}
+                    error={errors.instagram?.message}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Vehicle Registration - Toggle */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="includeVehicle"
+                  checked={includeVehicle}
+                  onChange={(e) => setValue('includeVehicle', e.target.checked)}
+                  className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
+                />
+                <Label htmlFor="includeVehicle" className="cursor-pointer font-medium">
+                  Cadastrar Veículo Agora
+                </Label>
+              </div>
+
+              {includeVehicle && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-lg bg-muted/30 border">
+                  <div className="space-y-2">
+                    <Label htmlFor="v-plate" required>Placa</Label>
+                    <Input
+                      id="v-plate"
+                      placeholder="ABC1D23"
+                      className="uppercase"
+                      {...register('vehicle.plate')}
+                      error={errors.vehicle?.plate?.message}
+                      maxLength={7}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="v-brand" required>Marca</Label>
+                    <Input
+                      id="v-brand"
+                      placeholder="Ex: Toyota"
+                      {...register('vehicle.brand')}
+                      error={errors.vehicle?.brand?.message}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="v-model" required>Modelo</Label>
+                    <Input
+                      id="v-model"
+                      placeholder="Ex: Corolla"
+                      {...register('vehicle.model')}
+                      error={errors.vehicle?.model?.message}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="v-color" required>Cor</Label>
+                    <Input
+                      id="v-color"
+                      placeholder="Ex: Prata"
+                      {...register('vehicle.color')}
+                      error={errors.vehicle?.color?.message}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="v-year">Ano</Label>
+                    <Input
+                      id="v-year"
+                      type="number"
+                      placeholder="2024"
+                      {...register('vehicle.year')}
+                      error={errors.vehicle?.year?.message}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Redirect Checkbox */}
+            <div className="flex items-center gap-3 pt-2">
+              <input
+                type="checkbox"
+                id="redirectToOrder"
+                {...register('redirectToOrder')}
+                className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
+              />
+              <Label htmlFor="redirectToOrder" className="cursor-pointer">
+                Ir Direto para Nova Ordem de Serviço
+              </Label>
             </div>
 
             {/* Notes */}

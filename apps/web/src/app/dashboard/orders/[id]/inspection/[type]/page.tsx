@@ -13,7 +13,9 @@ import {
   ChevronRight,
   Image as ImageIcon,
   X,
+  Video,
 } from 'lucide-react';
+import { convertFileToWebPBase64 } from '@/lib/image-conversion';
 import { 
   Button, 
   Card, 
@@ -74,6 +76,16 @@ export default function InspectionChecklistPage({ params }: PageProps) {
     },
   });
 
+  const updateVideo = trpc.inspection.updateVideo.useMutation({
+    onSuccess: () => {
+      utils.inspection.getByOrderIdAndType.invalidate({ orderId, type });
+      toast.success('Vídeo atualizado!');
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   const completeInspection = trpc.inspection.complete.useMutation({
     onSuccess: () => {
       toast.success('Vistoria concluída com sucesso!');
@@ -101,23 +113,17 @@ export default function InspectionChecklistPage({ params }: PageProps) {
     setUploadingItemId(itemId);
     
     try {
-      // TODO: Implementar upload real para S3/Cloudinary
-      // Por enquanto, usar base64 para demo (não recomendado para produção)
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        // Apenas salvar a foto, NÃO alterar o status
-        // O usuário escolhe depois se está OK ou tem avaria
-        updateItem.mutate({
-          itemId,
-          status: 'pendente',
-          photoUrl: base64,
-        });
-        setUploadingItemId(null);
-      };
-      reader.readAsDataURL(file);
+      // CONVERT TO WEBP BASE64 ON CLIENT SIDE
+      const base64 = await convertFileToWebPBase64(file);
+      
+      updateItem.mutate({
+        itemId,
+        status: 'pendente',
+        photoUrl: base64,
+      });
+      setUploadingItemId(null);
     } catch (error) {
-      toast.error('Erro ao fazer upload da foto');
+      toast.error('Erro ao processar/enviar foto');
       setUploadingItemId(null);
     }
   };
@@ -325,6 +331,74 @@ export default function InspectionChecklistPage({ params }: PageProps) {
             </Card>
           );
         })}
+      </div>
+
+
+
+      {/* Video Section (360/General) */}
+      <div className="max-w-2xl mx-auto p-4 pt-0">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5" />
+              Vídeo da Vistoria
+            </CardTitle>
+            <CardDescription>
+              Adicione um vídeo 360º ou geral mostrando o estado do veículo.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {inspection.finalVideoUrl ? (
+                <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                  <video 
+                    src={inspection.finalVideoUrl} 
+                    className="w-full h-full object-cover" 
+                    controls 
+                  />
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    className="absolute top-2 right-2"
+                    onClick={() => {
+                        if(confirm('Remover vídeo?')) {
+                             updateVideo.mutate({
+                                inspectionId: inspection.id,
+                                videoUrl: ''
+                            });
+                        }
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed rounded-lg p-8 text-center space-y-4">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                    <Video className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Carregar vídeo</p>
+                    <p className="text-sm text-muted-foreground">
+                      MP4, WebM ou Ogg (máx. 50MB)
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={() => {
+                      const url = prompt('Cole a URL do vídeo (simulação de upload):');
+                      if (url) {
+                          updateVideo.mutate({
+                              inspectionId: inspection.id,
+                              videoUrl: url
+                          });
+                      }
+                  }}>
+                    Selecionar Arquivo
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Bottom Action Bar */}

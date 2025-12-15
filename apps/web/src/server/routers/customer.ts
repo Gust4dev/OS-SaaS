@@ -9,8 +9,17 @@ const customerCreateSchema = z.object({
     email: z.string().email('Email inválido').optional().or(z.literal('')),
     document: z.string().optional(),
     birthDate: z.date().optional(),
+    instagram: z.string().optional(),
     notes: z.string().optional(),
     whatsappOptIn: z.boolean().default(true),
+    // Quick vehicle registration
+    vehicle: z.object({
+        plate: z.string().min(7, 'Placa inválida'),
+        brand: z.string().min(2, 'Marca obrigatória'),
+        model: z.string().min(2, 'Modelo obrigatório'),
+        color: z.string().min(2, 'Cor obrigatória'),
+        year: z.number().optional(),
+    }).optional(),
 });
 
 const customerUpdateSchema = customerCreateSchema.partial();
@@ -116,15 +125,37 @@ export const customerRouter = router({
                 });
             }
 
-            const customer = await ctx.db.customer.create({
-                data: {
-                    ...input,
-                    email: input.email || null,
-                    tenantId: ctx.tenantId!,
-                },
-            });
-
-            return customer;
+            try {
+                const customer = await ctx.db.customer.create({
+                    data: {
+                        name: input.name,
+                        phone: input.phone,
+                        email: input.email || null,
+                        document: input.document,
+                        birthDate: input.birthDate,
+                        instagram: input.instagram,
+                        notes: input.notes,
+                        whatsappOptIn: input.whatsappOptIn,
+                        tenantId: ctx.tenantId!,
+                        vehicles: input.vehicle ? {
+                            create: {
+                                ...input.vehicle,
+                                tenantId: ctx.tenantId!,
+                            }
+                        } : undefined,
+                    },
+                });
+                return customer;
+            } catch (error: any) {
+                // Handle duplicate vehicle plate error
+                if (error.code === 'P2002' && error.meta?.target?.includes('plate')) {
+                    throw new TRPCError({
+                        code: 'CONFLICT',
+                        message: `O veículo com placa ${input.vehicle?.plate} já está cadastrado no sistema.`,
+                    });
+                }
+                throw error;
+            }
         }),
 
     // Update customer

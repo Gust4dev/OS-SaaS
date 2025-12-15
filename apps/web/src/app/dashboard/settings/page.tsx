@@ -24,6 +24,7 @@ import {
 } from '@/components/ui';
 import { trpc } from '@/lib/trpc/provider';
 import { toast } from 'sonner';
+import { convertFileToWebP } from '@/lib/image-conversion';
 
 const settingsSchema = z.object({
   name: z.string().min(2, 'Nome muito curto').optional(),
@@ -150,27 +151,33 @@ export default function SettingsPage() {
     }
   }, [settings, reset]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const originalFile = e.target.files?.[0];
+    if (!originalFile) return;
+
+    // Validate file type (allow any image, we will convert)
+    if (!originalFile.type.startsWith('image/')) {
       toast.error('Por favor, selecione uma imagem válida');
       return;
     }
 
-    // Validate file size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('A imagem deve ter no máximo 2MB');
+    // Validate file size (max 50MB initial - conversion usually reduces it)
+    if (originalFile.size > 50 * 1024 * 1024) {
+      toast.error('A imagem deve ter no máximo 50MB');
       return;
     }
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
 
     try {
+      // CONVERT TO WEBP ON CLIENT SIDE
+      const file = await convertFileToWebP(originalFile);
+
+      const formData = new FormData();
+      formData.append('file', file);
+
       const response = await fetch('/api/upload/local', {
         method: 'POST',
         body: formData,

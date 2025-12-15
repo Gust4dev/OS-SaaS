@@ -21,10 +21,10 @@ export async function POST(request: NextRequest) {
             await mkdir(uploadDir, { recursive: true });
         }
 
-        // Generate unique filename to avoid collisions
+        // Generate unique filename to avoid collisions (FORCE .webp extension)
         const timestamp = Date.now();
-        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const filename = `${timestamp}-${safeName}`;
+        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_').replace(/\.[^/.]+$/, '');
+        const filename = `${timestamp}-${safeName}.webp`;
         const path = join(uploadDir, filename);
 
         // Write file to public/uploads

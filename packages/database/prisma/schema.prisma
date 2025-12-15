@@ -120,6 +120,7 @@ model Customer {
   email         String?
   document      String?
   birthDate     DateTime?
+  instagram     String?
   notes         String?
   whatsappOptIn Boolean   @default(true)
   tenantId      String
@@ -326,6 +327,8 @@ model Inspection {
 
   items   InspectionItem[]
   damages InspectionDamage[]
+
+  finalVideoUrl String?
 
   @@unique([orderId, type])
   @@index([orderId])

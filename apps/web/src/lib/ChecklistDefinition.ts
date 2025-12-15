@@ -55,6 +55,16 @@ export const INSPECTION_CHECKLIST: ChecklistCategory[] = [
         description: 'Adicione fotos de danos pré-existentes ou detalhes importantes',
         items: [], // Dinâmico - preenchido pelo usuário
     },
+    {
+        key: 'items_pessoais',
+        label: 'Itens Pessoais',
+        critical: false,
+        description: 'Verificação de pertences pessoais no veículo',
+        items: [
+            { key: 'internos', label: 'Pertences Internos', required: false },
+            { key: 'porta_malas', label: 'Pertences no Porta-Malas', required: false },
+        ],
+    },
 ];
 
 /**

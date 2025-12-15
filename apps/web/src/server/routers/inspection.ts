@@ -163,6 +163,43 @@ export const inspectionRouter = router({
                 },
             });
 
+            if (!inspection) return null;
+
+            // Sync missing checklist items (if new items were added to definition)
+            const definedItems = generateChecklistItems();
+            const existingItemKeys = new Set(inspection.items.map(i => i.itemKey));
+            const missingItems = definedItems.filter(i => !existingItemKeys.has(i.itemKey));
+
+            if (missingItems.length > 0) {
+                console.log(`Syncing ${missingItems.length} missing items for inspection ${inspection.id}`);
+
+                await ctx.db.inspectionItem.createMany({
+                    data: missingItems.map(item => ({
+                        inspectionId: inspection.id,
+                        category: item.category,
+                        itemKey: item.itemKey,
+                        label: item.label,
+                        isRequired: item.isRequired,
+                        isCritical: item.isCritical,
+                        status: 'pendente',
+                    })),
+                });
+
+                // Refetch inspection to get new items
+                return ctx.db.inspection.findUnique({
+                    where: { id: inspection.id },
+                    include: {
+                        items: {
+                            orderBy: [
+                                { category: 'asc' },
+                                { createdAt: 'asc' },
+                            ],
+                        },
+                        damages: true
+                    },
+                });
+            }
+
             return inspection;
         }),
 
@@ -264,6 +301,35 @@ export const inspectionRouter = router({
                     damageType: input.status === 'com_avaria' ? input.damageType : null,
                     severity: input.status === 'com_avaria' ? input.severity : null,
                     completedAt: input.status !== 'pendente' ? new Date() : null,
+                },
+            });
+
+            return updated;
+        }),
+
+    // Update final video URL
+    updateVideo: protectedProcedure
+        .input(z.object({
+            inspectionId: z.string(),
+            videoUrl: z.string(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const inspection = await ctx.db.inspection.findUnique({
+                where: { id: input.inspectionId },
+                include: { order: { select: { tenantId: true } } },
+            });
+
+            if (!inspection || inspection.order.tenantId !== ctx.tenantId) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Vistoria não encontrada',
+                });
+            }
+
+            const updated = await ctx.db.inspection.update({
+                where: { id: input.inspectionId },
+                data: {
+                    finalVideoUrl: input.videoUrl,
                 },
             });
 

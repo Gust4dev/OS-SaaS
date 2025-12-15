@@ -7,6 +7,7 @@ import { InspectionPDF } from './InspectionPDF';
 import QRCode from 'qrcode';
 import { Button } from '@/components/ui';
 import { FileText, Loader2 } from 'lucide-react';
+import { convertUrlToPngBase64 } from '@/lib/image-conversion';
 
 // Fetch logo via server proxy to avoid CORS issues
 async function fetchLogoAsBase64(url: string): Promise<string | null> {
@@ -52,6 +53,7 @@ export function PDFDownloadButton({ orderId }: { orderId: string }) {
       }
 
       // Convert logo to base64 via server proxy if exists
+      // Convert logo to base64 via server proxy if exists
       const logoUrl = publicStatus.tenantContact.logo;
       if (logoUrl) {
         let urlToFetch = logoUrl;
@@ -60,29 +62,27 @@ export function PDFDownloadButton({ orderId }: { orderId: string }) {
         if (logoUrl.startsWith('/')) {
           urlToFetch = `${window.location.origin}${logoUrl}`;
         }
-        
-        // Fetch Base64 either via proxy (external) or direct fetch (local/same-origin)
-        if (logoUrl.startsWith('http')) {
-             const base64 = await fetchLogoAsBase64(logoUrl);
-             setLogoBase64(base64);
-        } else {
-            // Local file, try fetching directly
+
+        try {
+            // Using shared utility to convert URL (potentially WebP) to PNG Base64
+            // This handles both external (via anonymous crossOrigin) and local images
+            const base64 = await convertUrlToPngBase64(urlToFetch);
+            setLogoBase64(base64);
+        } catch (e) {
+            console.error('Error converting logo for PDF:', e);
+            // Fallback: try direct fetch if conversion fails (though react-pdf might fail if it's strictly WebP)
              try {
                 const response = await fetch(urlToFetch);
                 const blob = await response.blob();
-                
-                await new Promise<void>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                        if (typeof reader.result === 'string') {
-                            setLogoBase64(reader.result);
-                        }
-                        resolve();
-                    };
-                    reader.readAsDataURL(blob);
-                });
-             } catch (e) {
-                 console.error('Error fetching local logo:', e);
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                reader.onloadend = () => {
+                   if (typeof reader.result === 'string') {
+                      setLogoBase64(reader.result);
+                   }
+                };
+             } catch (fallbackErr) {
+                 console.error('Fallback logo fetch failed:', fallbackErr);
              }
         }
       }
