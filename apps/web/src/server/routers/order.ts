@@ -173,10 +173,11 @@ export const orderRouter = router({
             const where: any = {
                 tenantId: ctx.tenantId!,
                 status: input.status && input.status.length > 0 ? { in: input.status } : undefined,
-                scheduledAt: (input.dateFrom || input.dateTo) ? {
-                    gte: input.dateFrom,
-                    lte: input.dateTo,
-                } : undefined,
+                OR: input.search ? [
+                    { code: { contains: input.search, mode: 'insensitive' } },
+                    { vehicle: { plate: { contains: input.search, mode: 'insensitive' } } },
+                    { vehicle: { customer: { name: { contains: input.search, mode: 'insensitive' } } } },
+                ] : undefined,
             };
 
             // RBAC: Members only see their assigned orders
@@ -196,7 +197,7 @@ export const orderRouter = router({
                         vehicle: {
                             include: {
                                 customer: {
-                                    select: { name: true },
+                                    select: { id: true, name: true },
                                 },
                             },
                         },
@@ -206,6 +207,9 @@ export const orderRouter = router({
                                     select: { name: true },
                                 },
                             },
+                        },
+                        assignedTo: {
+                            select: { name: true },
                         },
                     },
                 }),
@@ -534,7 +538,7 @@ export const orderRouter = router({
                 include: {
                     vehicle: {
                         include: {
-                            customer: { select: { name: true } },
+                            customer: { select: { id: true, name: true } },
                         },
                     },
                     items: {
