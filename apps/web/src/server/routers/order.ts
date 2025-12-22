@@ -35,6 +35,16 @@ const orderCreateSchema = z.object({
     products: z.array(orderProductSchema).optional(),
     discountType: z.enum(['PERCENTAGE', 'FIXED']).optional(),
     discountValue: z.number().min(0).optional(),
+}).refine((data) => {
+    if (data.discountType === 'FIXED' && data.discountValue) {
+        // Calculate estimated subtotal from items (ignoring products for now as they might be separate logic)
+        const subtotal = data.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+        return data.discountValue <= subtotal;
+    }
+    return true;
+}, {
+    message: "O valor do desconto não pode ser maior que o subtotal dos serviços",
+    path: ["discountValue"]
 });
 
 const orderUpdateSchema = z.object({

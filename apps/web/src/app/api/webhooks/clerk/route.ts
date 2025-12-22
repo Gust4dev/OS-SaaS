@@ -45,85 +45,128 @@ export async function POST(req: Request) {
     const eventType = evt.type;
 
     if (eventType === 'user.created') {
-        const { id, email_addresses, first_name, last_name, image_url, public_metadata } = evt.data;
+        const { id, email_addresses, first_name, last_name, image_url, public_metadata } = evt.data as any; // Cast to any to avoid strict type issues with Clerk's Discriminated Union
 
-        const email = email_addresses[0]?.email_address
+        const email = email_addresses?.[0]?.email_address
         const name = `${first_name ?? ''} ${last_name ?? ''}`.trim() || 'Usuário Sem Nome'
 
         if (!email) {
             return new Response('Error: No email found in user data', { status: 400 })
         }
 
-        const tenantId = public_metadata?.tenantId as string | undefined
-        const roleStr = public_metadata?.role as string | undefined
-
-        let role: UserRole = UserRole.MEMBER
-        if (roleStr && Object.values(UserRole).includes(roleStr as UserRole)) {
-            role = roleStr as UserRole
-        }
+        const clerk = await import('@clerk/nextjs/server').then(m => m.clerkClient())
 
         try {
-            const dbUserId = public_metadata?.dbUserId as string | undefined
+            // Check if user already exists (by email) - e.g. was INVITED
+            // Using findFirst is safer if email isn't strictly unique globally in schema (though it should be for auth)
+            const existingUser = await prisma.user.findFirst({
+                where: { email }
+            });
 
-            if (tenantId) {
-                // SCENARIO A: Invite Flow (Tenant already exists)
+            const sentTenantId = public_metadata?.tenantId as string | undefined;
 
-                if (dbUserId) {
-                    // Update pre-created user
-                    await prisma.user.update({
-                        where: { id: dbUserId },
-                        data: {
-                            clerkId: id,
-                            avatarUrl: image_url,
-                            status: 'ACTIVE',
-                        }
-                    })
-                    console.log(`[Webhook] Pre-created User ${dbUserId} linked to Clerk ID ${id}`)
-                } else {
-                    // Legacy: Create new user if not pre-created
-                    await prisma.user.create({
-                        data: {
-                            clerkId: id,
-                            email,
-                            name,
-                            avatarUrl: image_url,
-                            role,
-                            tenantId,
-                            status: 'ACTIVE',
-                        }
-                    })
-                    console.log(`[Webhook] User ${id} created and linked to tenant ${tenantId} as ${role}`)
-                }
-            } else {
-                // SCENARIO B: Organic/Trial Flow (New Tenant)
-                const tenantName = `Oficina de ${first_name ?? 'Usuário'}`.trim()
-                const baseSlug = tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
-                const slug = `${baseSlug}-${Date.now().toString(36)}`
+            // SCENARIO 1: User exists in DB (likely INVITED)
+            // We must link this new Clerk Account to the existing DB User
+            if (existingUser) {
+                console.log(`[Webhook] Linking Clerk ID ${id} to existing user ${existingUser.id} (Status: ${existingUser.status})`);
 
-                await prisma.$transaction(async (tx) => {
-                    const newTenant = await tx.tenant.create({
-                        data: {
-                            name: tenantName,
-                            slug,
-                            status: 'TRIAL',
-                            trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-                        }
-                    })
+                const updatedUser = await prisma.user.update({
+                    where: { id: existingUser.id },
+                    data: {
+                        clerkId: id,
+                        // Update info if provided, but keep existing if not? 
+                        // Usually we want to take the latest from Clerk for profile stuff, 
+                        // but role/tenant is sacred from DB.
+                        avatarUrl: image_url || existingUser.avatarUrl,
+                        status: 'ACTIVE', // Activate user
+                    }
+                });
 
-                    await tx.user.create({
-                        data: {
-                            clerkId: id,
-                            email,
-                            name,
-                            avatarUrl: image_url,
-                            role: UserRole.OWNER,
-                            tenantId: newTenant.id,
-                        }
-                    })
+                // IMPERATIVE: Correct the Clerk session metadata
+                // The organic sign-up token DOES NOT have the tenantId/role 
+                // because they weren't known at sign-up time (unless invite token was used properly).
+                // Just to be safe, we ALWAYS push the DB truth back to Clerk.
+                await clerk.users.updateUser(id, {
+                    publicMetadata: {
+                        tenantId: existingUser.tenantId,
+                        role: existingUser.role,
+                        dbUserId: existingUser.id,
+                    }
+                });
 
-                    console.log(`[Webhook] Created new tenant ${newTenant.id} and owner ${id}`)
-                })
+                console.log(`[Webhook] Sync complete. User ${existingUser.id} is now ACTIVE in tenant ${existingUser.tenantId}`);
+                return new Response('User linked', { status: 200 });
             }
+
+            // SCENARIO 2: Brand New User (Trial / Organic)
+            // Only allowed if NO valid tenantId was sent (meaning they are not trying to hack into a tenant)
+            // If they sent a tenantId but weren't in DB, that's weird (invite flow should catch above).
+            // But let's assume if they have tenantId metadata, they should have been in DB.
+
+            if (sentTenantId) {
+                // Edge case: Clerk has metadata but DB doesn't have user. 
+                // Maybe DB deleted? Or invite flow glitch?
+                // We create them in that tenant if we trust the metadata.
+                // But generally, the invite flow pre-creates the DB user.
+                console.warn(`[Webhook] User ${id} has tenantId ${sentTenantId} but not found in DB. Creating as MEMBER.`);
+
+                await prisma.user.create({
+                    data: {
+                        clerkId: id,
+                        email,
+                        name,
+                        avatarUrl: image_url,
+                        role: (public_metadata?.role as UserRole) || UserRole.MEMBER,
+                        tenantId: sentTenantId,
+                        status: 'ACTIVE',
+                    }
+                });
+                // No need to update metadata, it's already there (presumably)
+                return new Response('User created in existing tenant', { status: 200 });
+            }
+
+            // SCENARIO 3: Fresh Trial (No Tenant)
+            const tenantName = `Oficina de ${first_name ?? 'Usuário'}`.trim()
+            const baseSlug = tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
+            const slug = `${baseSlug}-${Date.now().toString(36)}`
+
+            console.log(`[Webhook] Creating new Tenant: ${tenantName}`);
+
+            await prisma.$transaction(async (tx) => {
+                const newTenant = await tx.tenant.create({
+                    data: {
+                        name: tenantName,
+                        slug,
+                        status: 'TRIAL',
+                        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+                    }
+                })
+
+                const newUser = await tx.user.create({
+                    data: {
+                        clerkId: id,
+                        email,
+                        name,
+                        avatarUrl: image_url,
+                        role: UserRole.OWNER,
+                        tenantId: newTenant.id,
+                        status: 'ACTIVE' // Owners start active
+                    }
+                })
+
+                // Back-propagate to Clerk so their session works immediately (after refresh)
+                // This is crucial for the very first login
+                await clerk.users.updateUser(id, {
+                    publicMetadata: {
+                        tenantId: newTenant.id,
+                        role: 'OWNER',
+                        dbUserId: newUser.id,
+                    }
+                });
+            })
+
+            console.log(`[Webhook] Trial Setup Complete for ${email}`);
+
         } catch (error) {
             console.error('[Webhook] Error creating user in database:', error)
             return new Response('Error creating user in database', { status: 500 })

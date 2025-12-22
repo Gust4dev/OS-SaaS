@@ -1,5 +1,6 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
+import '@/lib/superjson-config'; // Register custom transformers
 import { ZodError } from 'zod';
 import { prisma } from '@filmtech/database';
 import type { User } from '@filmtech/database';

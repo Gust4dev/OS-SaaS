@@ -5,6 +5,7 @@ import { httpBatchLink, loggerLink } from '@trpc/client';
 import { createTRPCReact } from '@trpc/react-query';
 import { useState } from 'react';
 import superjson from 'superjson';
+import '@/lib/superjson-config'; // Register custom transformers
 import type { AppRouter } from '@/server/routers/_app';
 
 export const trpc = createTRPCReact<AppRouter>();
