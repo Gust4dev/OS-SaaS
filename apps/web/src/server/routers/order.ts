@@ -162,6 +162,7 @@ export const orderRouter = router({
         .input(z.object({
             page: z.number().default(1),
             limit: z.number().default(10),
+            search: z.string().optional(),
             status: z.array(z.nativeEnum(PrismaOrderStatus)).optional(),
             dateFrom: z.date().optional(),
             dateTo: z.date().optional(),
