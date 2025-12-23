@@ -12,14 +12,20 @@ import {
   Card, 
   CardContent, 
   CardHeader, 
-  CardTitle,
-  CardDescription,
-  Input,
-  Label,
+  CardTitle, 
+  CardDescription, 
+  Input, 
+  Label, 
   Skeleton,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
 } from '@/components/ui';
 import { trpc } from '@/lib/trpc/provider';
 import { toast } from 'sonner';
+import { QuickCustomerForm } from '@/components/forms/QuickCustomerForm';
 
 // Form validation schema
 const vehicleFormSchema = z.object({
@@ -44,6 +50,7 @@ export default function EditVehiclePage({ params }: PageProps) {
   // State for customer search
   const [customerSearch, setCustomerSearch] = useState('');
   const [isChangingCustomer, setIsChangingCustomer] = useState(false);
+  const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
 
   // Queries
   const vehicleQuery = trpc.vehicle.getById.useQuery({ id });
@@ -248,9 +255,20 @@ export default function EditVehiclePage({ params }: PageProps) {
                       )}
                       
                       {!customersQuery.isLoading && filteredCustomers.length === 0 && (
-                        <p className="text-center text-xs text-muted-foreground py-2">
-                          Nenhum cliente encontrado.
-                        </p>
+                        <div className="p-4 text-center">
+                            <p className="text-xs text-muted-foreground mb-2">
+                            Nenhum cliente encontrado.
+                            </p>
+                            <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                className="w-full"
+                                onClick={() => setIsCreateCustomerOpen(true)}
+                            >
+                                + Cadastrar Novo Cliente
+                            </Button>
+                        </div>
                       )}
 
                       {filteredCustomers.map((customer) => (
@@ -359,6 +377,24 @@ export default function EditVehiclePage({ params }: PageProps) {
           </CardContent>
         </Card>
       </form>
+      <Dialog open={isCreateCustomerOpen} onOpenChange={setIsCreateCustomerOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Novo Cliente</DialogTitle>
+                <DialogDescription>
+                    Cadastre rapidamente um cliente para vincular a este veículo.
+                </DialogDescription>
+            </DialogHeader>
+            <QuickCustomerForm 
+                onCancel={() => setIsCreateCustomerOpen(false)}
+                onSuccess={(customer) => {
+                    setIsCreateCustomerOpen(false);
+                    setValue('customerId', customer.id);
+                    setIsChangingCustomer(false); // Close search mode
+                }}
+            />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

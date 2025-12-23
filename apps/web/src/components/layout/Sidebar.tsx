@@ -22,7 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { Separator } from '@/components/ui/separator';
 import { useTenantTheme } from '@/components/providers/TenantThemeProvider';
 
-type UserRole = 'OWNER' | 'MANAGER' | 'MEMBER';
+type UserRole = 'ADMIN_SAAS' | 'OWNER' | 'MANAGER' | 'MEMBER';
 
 interface NavItem {
   href: string;
@@ -34,7 +34,7 @@ interface NavItem {
 
 const mainNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/financial', label: 'Financeiro', icon: TrendingUp, roles: ['OWNER', 'MANAGER'] },
+  { href: '/dashboard/financial', label: 'Financeiro', icon: TrendingUp, roles: ['ADMIN_SAAS', 'OWNER', 'MANAGER'] },
   { href: '/dashboard/orders', label: 'Ordens de Serviço', icon: ClipboardList },
   { href: '/dashboard/scheduling', label: 'Agendamentos', icon: Calendar },
   { href: '/dashboard/customers', label: 'Clientes', icon: Users },
@@ -47,8 +47,8 @@ const catalogNavItems: NavItem[] = [
 ];
 
 const settingsNavItems: NavItem[] = [
-  { href: '/dashboard/settings', label: 'Configurações', icon: Settings, roles: ['OWNER'] },
-  { href: '/dashboard/settings/team', label: 'Equipe', icon: Users, roles: ['OWNER', 'MANAGER'] },
+  { href: '/dashboard/settings', label: 'Configurações', icon: Settings, roles: ['ADMIN_SAAS', 'OWNER', 'MANAGER'] },
+  { href: '/dashboard/settings/team', label: 'Equipe', icon: Users, roles: ['ADMIN_SAAS', 'OWNER', 'MANAGER'] },
 ];
 
 interface SidebarProps {

@@ -16,9 +16,15 @@ import {
   CardDescription,
   Input,
   Label,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
 } from '@/components/ui';
 import { trpc } from '@/lib/trpc/provider';
 import { toast } from 'sonner';
+import { QuickCustomerForm } from '@/components/forms/QuickCustomerForm';
 
 // Form validation schema
 const vehicleFormSchema = z.object({
@@ -44,6 +50,7 @@ export default function NewVehiclePage() {
     name: string;
     phone: string;
   } | null>(null);
+  const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
 
   const { data: customers = [] } = trpc.customer.search.useQuery(
     { query: customerSearch || '' },
@@ -192,8 +199,17 @@ export default function NewVehiclePage() {
                   {showCustomerDropdown && customerSearch.length >= 2 && (
                     <div className="absolute z-10 mt-1 w-full rounded-lg border border-border bg-popover shadow-lg">
                       {customers.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-muted-foreground">
-                          Nenhum cliente encontrado
+                        <div className="p-4 text-center">
+                          <p className="text-sm text-muted-foreground mb-2">Nenhum cliente encontrado</p>
+                          <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                className="w-full"
+                                onClick={() => setIsCreateCustomerOpen(true)}
+                            >
+                                + Cadastrar Novo Cliente
+                            </Button>
                         </div>
                       ) : (
                         customers.map((customer) => (
@@ -306,6 +322,24 @@ export default function NewVehiclePage() {
           </CardContent>
         </Card>
       </form>
+      <Dialog open={isCreateCustomerOpen} onOpenChange={setIsCreateCustomerOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Novo Cliente</DialogTitle>
+                <DialogDescription>
+                    Cadastre rapidamente um cliente para vincular a este veículo.
+                </DialogDescription>
+            </DialogHeader>
+            <QuickCustomerForm 
+                onCancel={() => setIsCreateCustomerOpen(false)}
+                onSuccess={(customer) => {
+                    setIsCreateCustomerOpen(false);
+                    // Select the new customer
+                    selectCustomer(customer);
+                }}
+            />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

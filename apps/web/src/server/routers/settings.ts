@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, protectedProcedure, ownerProcedure } from '../trpc';
+import { router, protectedProcedure, managerProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 
 // Regex patterns for PIX key validation
@@ -66,8 +66,8 @@ export const settingsRouter = router({
         return tenant;
     }),
 
-    // Update tenant settings (owner only)
-    update: ownerProcedure
+    // Update tenant settings (owner and manager)
+    update: managerProcedure
         .input(updateSettingsSchema)
         .mutation(async ({ ctx, input }) => {
             const tenant = await ctx.db.tenant.update({

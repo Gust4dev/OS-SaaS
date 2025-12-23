@@ -10,6 +10,8 @@ import { settingsRouter } from './settings';
 import { dashboardRouter } from './dashboard';
 import { inspectionRouter } from './inspection';
 import { scheduleRouter } from './schedule';
+import { notificationRouter } from './notification';
+import { tenantRouter } from './tenant';
 
 export const appRouter = router({
     health: healthRouter,
@@ -23,6 +25,8 @@ export const appRouter = router({
     dashboard: dashboardRouter,
     inspection: inspectionRouter,
     schedule: scheduleRouter,
+    notification: notificationRouter,
+    tenant: tenantRouter,
 });
 
 

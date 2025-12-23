@@ -76,7 +76,7 @@ export const orderRouter = router({
             // Fetch vehicle to get current owner
             const vehicle = await ctx.db.vehicle.findUnique({
                 where: { id: input.vehicleId },
-                select: { customerId: true }
+                select: { customerId: true, plate: true }
             });
 
             if (!vehicle) {
@@ -110,6 +110,19 @@ export const orderRouter = router({
                         })),
                     },
                 },
+            });
+
+            // Create notification for dashboard
+            await ctx.db.notificationLog.create({
+                data: {
+                    tenantId: ctx.tenantId!,
+                    orderId: order.id,
+                    type: 'AGENDAMENTO_CONFIRMADO',
+                    recipient: 'system', // Internal notification
+                    channel: 'in_app',
+                    message: `Nova OS #${order.code} criada para ${vehicle.plate}`,
+                    status: 'pending',
+                }
             });
 
             return order;

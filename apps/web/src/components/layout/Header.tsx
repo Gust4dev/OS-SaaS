@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { trpc } from '@/lib/trpc/provider';
 import { cn } from '@/lib/cn';
 
 interface HeaderProps {
@@ -20,6 +21,12 @@ interface HeaderProps {
 }
 
 export function Header({ onMobileMenuToggle, isSidebarCollapsed }: HeaderProps) {
+  const { data, isLoading } = trpc.notification.list.useQuery({ limit: 5 }, {
+    refetchInterval: 30000,
+  });
+
+  const notifications = data?.items || [];
+  const unreadCount = data?.unreadCount || 0;
   return (
     <header
       className={cn(
@@ -62,35 +69,49 @@ export function Header({ onMobileMenuToggle, isSidebarCollapsed }: HeaderProps) 
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
               {/* Notification badge */}
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                3
-              </span>
+              {unreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
               <span className="sr-only">Notificações</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Notificações</DropdownMenuLabel>
+            <DropdownMenuLabel className="flex items-center justify-between">
+              <span>Notificações</span>
+              {unreadCount > 0 && (
+                 <span className="text-xs font-normal text-muted-foreground">{unreadCount} não lidas</span>
+              )}
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
-              <p className="text-sm font-medium">Nova OS criada</p>
-              <p className="text-xs text-muted-foreground">
-                OS #2024001 agendada para hoje às 14:00
-              </p>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
-              <p className="text-sm font-medium">Cliente cadastrado</p>
-              <p className="text-xs text-muted-foreground">
-                João Silva foi adicionado ao sistema
-              </p>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
-              <p className="text-sm font-medium">Estoque baixo</p>
-              <p className="text-xs text-muted-foreground">
-                Película 3M está abaixo do mínimo
-              </p>
-            </DropdownMenuItem>
+            
+            <div className="max-h-[300px] overflow-y-auto">
+              {isLoading ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  Carregando...
+                </div>
+              ) : !notifications?.length ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  Nenhuma notificação recente.
+                </div>
+              ) : (
+                notifications.map((notification) => (
+                  <DropdownMenuItem key={notification.id} className="flex flex-col items-start gap-1 py-3 cursor-pointer">
+                    <div className="flex w-full items-center justify-between">
+                       <p className="text-sm font-medium">{notification.message}</p>
+                       {notification.status === 'pending' && <span className="h-2 w-2 rounded-full bg-primary" />}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(notification.createdAt))}
+                    </p>
+                  </DropdownMenuItem>
+                ))
+              )}
+            </div>
+            
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="justify-center text-primary">
+            <DropdownMenuItem className="justify-center text-primary cursor-pointer">
               Ver todas as notificações
             </DropdownMenuItem>
           </DropdownMenuContent>
