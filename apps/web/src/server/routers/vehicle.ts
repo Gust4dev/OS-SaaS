@@ -271,8 +271,9 @@ export const vehicleRouter = router({
                 });
             }
 
-            await ctx.db.vehicle.delete({
+            await ctx.db.vehicle.update({
                 where: { id: input.id },
+                data: { deletedAt: new Date() },
             });
 
             return { success: true };

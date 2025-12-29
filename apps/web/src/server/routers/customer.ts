@@ -259,13 +259,15 @@ export const customerRouter = router({
                 });
             }
 
-            // Delete vehicles first, then customer
-            await ctx.db.vehicle.deleteMany({
+            // Soft delete vehicles first, then customer
+            await ctx.db.vehicle.updateMany({
                 where: { customerId: input.id },
+                data: { deletedAt: new Date() },
             });
 
-            await ctx.db.customer.delete({
+            await ctx.db.customer.update({
                 where: { id: input.id },
+                data: { deletedAt: new Date() },
             });
 
             return { success: true };
