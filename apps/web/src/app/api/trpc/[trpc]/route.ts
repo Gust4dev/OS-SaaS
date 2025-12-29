@@ -1,10 +1,17 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { auth } from '@clerk/nextjs/server';
 import { appRouter } from '@/server/routers/_app';
-import { prisma } from '@filmtech/database';
+import { prisma, type User } from '@filmtech/database';
 import type { Context } from '@/server/trpc';
-
 import { clerkClient } from '@clerk/nextjs/server';
+
+interface CachedUser {
+    user: User & { tenant: { id: string; status: string } | null };
+    timestamp: number;
+}
+
+const userCache = new Map<string, CachedUser>();
+const USER_CACHE_TTL = 30 * 1000; // 30 seconds
 
 async function createContext(): Promise<Context> {
     const { userId, sessionClaims } = await auth();
@@ -13,32 +20,34 @@ async function createContext(): Promise<Context> {
         return { db: prisma, user: null, tenantId: null };
     }
 
-    // 1. Try to find user in local DB
+    const now = Date.now();
+    const cached = userCache.get(userId);
+
+    if (cached && (now - cached.timestamp < USER_CACHE_TTL)) {
+        return {
+            db: prisma,
+            user: cached.user,
+            tenantId: cached.user.tenantId,
+        };
+    }
+
     let user = await prisma.user.findUnique({
         where: { clerkId: userId },
         include: { tenant: true },
     });
 
-    // Sync check for existing users
     if (user && sessionClaims) {
-        const metadata = sessionClaims.public_metadata as any;
+        const metadata = sessionClaims.public_metadata as { role?: string; tenantId?: string } | undefined;
         if (metadata?.role !== user.role || metadata?.tenantId !== user.tenantId) {
-            console.log('[AuthSync] Metadata mismatch detected. Syncing...', {
-                claimRole: metadata?.role,
-                dbRole: user.role
-            });
-            const client = await clerkClient();
-            await client.users.updateUser(userId, {
-                publicMetadata: {
-                    tenantId: user.tenantId,
-                    role: user.role,
-                    dbUserId: user.id,
-                }
-            });
+            console.log('[AuthSync] Metadata mismatch. Syncing...');
+            clerkClient().then(client =>
+                client.users.updateUser(userId, {
+                    publicMetadata: { tenantId: user!.tenantId, role: user!.role, dbUserId: user!.id }
+                })
+            ).catch(() => { });
         }
     }
 
-    // 2. If not found, SYNC from Clerk (Development/Recovery Mode)
     if (!user) {
         try {
             const client = await clerkClient();
@@ -46,15 +55,12 @@ async function createContext(): Promise<Context> {
             const email = clerkUser.emailAddresses[0]?.emailAddress;
 
             if (email) {
-                console.log(`[AuthSync] Syncing user ${email} from Clerk...`);
-
-                // Create Tenant + User
                 user = await prisma.user.create({
                     data: {
                         clerkId: userId,
                         email: email,
                         name: `${clerkUser.firstName} ${clerkUser.lastName}`.trim() || email,
-                        role: 'ADMIN_SAAS', // Default for first user
+                        role: 'ADMIN_SAAS',
                         tenant: {
                             create: {
                                 name: "Minha Empresa",
@@ -66,44 +72,18 @@ async function createContext(): Promise<Context> {
                     include: { tenant: true }
                 });
 
-                // Force sync metadata immediately
-                await client.users.updateUser(userId, {
-                    publicMetadata: {
-                        tenantId: user.tenantId,
-                        role: user.role,
-                        dbUserId: user.id,
-                    }
-                });
-
-                console.log(`[AuthSync] User created: ${user.id} and metadata synced.`);
+                client.users.updateUser(userId, {
+                    publicMetadata: { tenantId: user.tenantId, role: user.role, dbUserId: user.id }
+                }).catch(() => { });
             }
         } catch (error) {
-            console.error("[AuthSync] Failed to sync user:", error);
+            console.error("[AuthSync] Sync failed:", error);
         }
-    } else {
-        // Self-healing: Check if Clerk Metadata is out of sync with DB
-        // We can't easily check actual Clerk state every time, but we can assume if role is missing in session claims (if we had them)
-        // For now, let's just do a "lazy" sync check by calling Clerk if we suspect issues? 
-        // No, that's too slow.
-        // Better strategy: If the user exists in DB, let's fire-and-forget a metadata update 
-        // IF we assume this is a recovery scenario.
-        // OR: We can rely on the fact that if they are in DB, they *should* have metadata.
-        // Let's explicitly check `sessionClaims` if available.
-
-        // Note: We don't have direct access to sessionClaims here unless we destructure it from auth().
-        // Let's fix the destructuring first (in next edit), but for now, let's just force update if it's ADMIN_SAAS to be safe?
-        // Actually, best approach is:
-        const client = await clerkClient();
-        // We catch this error just in case
-        try {
-            // We won't fetch the user every time (too slow), but we can blindly update metadata if we want strict consistency.
-            // However, to avoid rate limits, maybe only if we are in this "debugging" mindset?
-            // Since the USER is complaining, let's DO IT ONCE roughly.
-            // Ideally we check claims.
-        } catch (e) { }
     }
 
-    // New self-healing using auth() claims would go here if we extracted it.
+    if (user) {
+        userCache.set(userId, { user: user as CachedUser['user'], timestamp: now });
+    }
 
     return {
         db: prisma,

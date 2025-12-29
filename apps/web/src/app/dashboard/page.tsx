@@ -25,46 +25,23 @@ import { Skeleton } from "@/components/ui";
 import { trpc } from "@/lib/trpc/provider";
 import { cn } from "@/lib/cn";
 
-// Helper to get today's date range
-const getTodayRange = () => {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date();
-  end.setHours(23, 59, 59, 999);
-  return { start, end };
-};
-
 export default function DashboardPage() {
   const { user, isLoaded: isUserLoaded } = useUser();
-  const { start: todayStart, end: todayEnd } = getTodayRange();
 
-  // Queries
-  const quickStatsQuery = trpc.dashboard.getQuickStats.useQuery(undefined, {
-    refetchInterval: 30000,
-  });
-
-  const recentOrdersQuery = trpc.order.getRecent.useQuery(
-    { limit: 5 },
+  // CONSOLIDATED: Single query that fetches all dashboard data
+  // This replaces 4 separate queries, reducing waterfall requests
+  const dashboardQuery = trpc.dashboard.getDashboardOverview.useQuery(
+    undefined,
     {
       refetchInterval: 30000,
     }
   );
 
-  const todayScheduleQuery = trpc.order.list.useQuery(
-    {
-      page: 1,
-      limit: 10,
-      status: ["AGENDADO"],
-      dateFrom: todayStart,
-      dateTo: todayEnd,
-    },
-    {
-      refetchInterval: 30000,
-    }
-  );
-
-  // We use customer list just to get the total count
-  const customerCountQuery = trpc.customer.list.useQuery({ limit: 1 });
+  // Destructure data with fallbacks
+  const stats = dashboardQuery.data?.stats;
+  const customerCount = dashboardQuery.data?.customerCount ?? 0;
+  const recentOrders = dashboardQuery.data?.recentOrders ?? [];
+  const todaySchedule = dashboardQuery.data?.todaySchedule ?? [];
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -80,12 +57,7 @@ export default function DashboardPage() {
     }).format(new Date(date));
   };
 
-  const isLoading =
-    quickStatsQuery.isLoading ||
-    recentOrdersQuery.isLoading ||
-    todayScheduleQuery.isLoading ||
-    customerCountQuery.isLoading ||
-    !isUserLoaded;
+  const isLoading = dashboardQuery.isLoading || !isUserLoaded;
 
   if (isLoading) {
     return (
@@ -134,19 +106,19 @@ export default function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           title="Agendamentos Hoje"
-          value={quickStatsQuery.data?.todayOrders.toString() || "0"}
+          value={stats?.todayOrders.toString() || "0"}
           description="Para hoje"
           icon={Calendar}
         />
         <StatCard
           title="OS em Andamento"
-          value={quickStatsQuery.data?.inProgress.toString() || "0"}
+          value={stats?.inProgress.toString() || "0"}
           description="Em execução/vistoria"
           icon={ClipboardList}
         />
         <StatCard
           title="Clientes Totais"
-          value={customerCountQuery.data?.pagination.total.toString() || "0"}
+          value={customerCount.toString()}
           description="Cadastrados"
           icon={Users}
         />
@@ -163,12 +135,12 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!todayScheduleQuery.data?.orders.length ? (
+            {!todaySchedule.length ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
                 Sem agendamentos para hoje.
               </p>
             ) : (
-              todayScheduleQuery.data.orders.map((order) => (
+              todaySchedule.map((order) => (
                 <ScheduleItem
                   key={order.id}
                   time={formatTime(order.scheduledAt)}
@@ -199,12 +171,12 @@ export default function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!recentOrdersQuery.data?.length ? (
+            {!recentOrders.length ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
                 Nenhuma ordem recente.
               </p>
             ) : (
-              recentOrdersQuery.data.map((order) => (
+              recentOrders.map((order) => (
                 <OrderItem
                   key={order.id}
                   code={order.code}

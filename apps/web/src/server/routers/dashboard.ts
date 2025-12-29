@@ -126,6 +126,116 @@ export const dashboardRouter = router({
         };
     }),
 
+    // CONSOLIDATED: Get all dashboard overview data in a single call
+    // This reduces 4 separate queries to 1, dramatically improving initial load time
+    getDashboardOverview: protectedProcedure.query(async ({ ctx }) => {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const todayEnd = new Date(today);
+        todayEnd.setHours(23, 59, 59, 999);
+
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const isMember = ctx.user?.role === 'MEMBER';
+        const baseWhere: { tenantId: string; assignedToId?: string } = { tenantId: ctx.tenantId! };
+        if (isMember) {
+            baseWhere.assignedToId = ctx.user!.id;
+        }
+
+        // Execute all queries in parallel
+        const [
+            todayOrdersCount,
+            inProgressCount,
+            monthRevenue,
+            pendingPaymentsCount,
+            customerCount,
+            recentOrders,
+            todaySchedule
+        ] = await Promise.all([
+            // Quick Stats: Orders scheduled for today
+            ctx.db.serviceOrder.count({
+                where: {
+                    ...baseWhere,
+                    scheduledAt: { gte: today, lt: tomorrow },
+                },
+            }),
+            // Quick Stats: Orders in progress
+            ctx.db.serviceOrder.count({
+                where: {
+                    ...baseWhere,
+                    status: { in: ['EM_VISTORIA', 'EM_EXECUCAO'] },
+                },
+            }),
+            // Quick Stats: Month revenue from payments
+            ctx.db.payment.aggregate({
+                where: {
+                    order: { tenantId: ctx.tenantId! },
+                    paidAt: { gte: startOfMonth },
+                },
+                _sum: { amount: true },
+            }),
+            // Quick Stats: Orders awaiting payment
+            ctx.db.serviceOrder.count({
+                where: {
+                    ...baseWhere,
+                    status: 'AGUARDANDO_PAGAMENTO',
+                },
+            }),
+            // Customer count
+            ctx.db.customer.count({
+                where: { tenantId: ctx.tenantId! },
+            }),
+            // Recent orders (last 5)
+            ctx.db.serviceOrder.findMany({
+                where: baseWhere,
+                take: 5,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    vehicle: {
+                        include: {
+                            customer: { select: { id: true, name: true } },
+                        },
+                    },
+                    items: {
+                        include: { service: { select: { name: true } } },
+                    },
+                },
+            }),
+            // Today's schedule (AGENDADO only)
+            ctx.db.serviceOrder.findMany({
+                where: {
+                    ...baseWhere,
+                    status: 'AGENDADO',
+                    scheduledAt: { gte: today, lte: todayEnd },
+                },
+                take: 10,
+                orderBy: { scheduledAt: 'asc' },
+                include: {
+                    vehicle: {
+                        include: {
+                            customer: { select: { name: true } },
+                        },
+                    },
+                    items: true,
+                },
+            }),
+        ]);
+
+        return {
+            stats: {
+                todayOrders: todayOrdersCount,
+                inProgress: inProgressCount,
+                monthRevenue: Number(monthRevenue._sum.amount) || 0,
+                pendingPayments: pendingPaymentsCount,
+            },
+            customerCount,
+            recentOrders,
+            todaySchedule,
+        };
+    }),
+
     // Get Chart Data (Daily Revenue)
     getFinancialChartData: managerProcedure.query(async ({ ctx }) => {
         const now = new Date();
@@ -243,6 +353,124 @@ export const dashboardRouter = router({
             totalPayroll,
             totalFixed,
             totalCommissions,
+        };
+    }),
+
+    getFinancialOverview: managerProcedure.query(async ({ ctx }) => {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        const [
+            monthPayments,
+            monthOrders,
+            ordersWithPayments,
+            payments,
+            users
+        ] = await Promise.all([
+            ctx.db.payment.aggregate({
+                where: {
+                    order: { tenantId: ctx.tenantId! },
+                    paidAt: { gte: startOfMonth, lte: endOfMonth },
+                },
+                _sum: { amount: true },
+                _count: true,
+            }),
+            ctx.db.serviceOrder.count({
+                where: {
+                    tenantId: ctx.tenantId!,
+                    status: 'CONCLUIDO',
+                    completedAt: { gte: startOfMonth, lte: endOfMonth },
+                },
+            }),
+            ctx.db.serviceOrder.findMany({
+                where: {
+                    tenantId: ctx.tenantId!,
+                    status: { notIn: ['CANCELADO'] },
+                },
+                select: {
+                    total: true,
+                    payments: { select: { amount: true } },
+                },
+            }),
+            ctx.db.payment.findMany({
+                where: {
+                    order: { tenantId: ctx.tenantId! },
+                    paidAt: { gte: startOfMonth, lte: endOfMonth },
+                },
+                select: { paidAt: true, amount: true },
+                orderBy: { paidAt: 'asc' },
+            }),
+            ctx.db.user.findMany({
+                where: { tenantId: ctx.tenantId!, isActive: true },
+                select: {
+                    id: true,
+                    name: true,
+                    role: true,
+                    jobTitle: true,
+                    salary: true,
+                    avatarUrl: true,
+                    commissions: {
+                        where: { calculatedAt: { gte: startOfMonth } },
+                        select: { commissionValue: true },
+                    },
+                    assignedOrders: {
+                        where: { status: 'CONCLUIDO', completedAt: { gte: startOfMonth } },
+                        select: { total: true },
+                    },
+                },
+            }),
+        ]);
+
+        let receivables = 0;
+        for (const order of ordersWithPayments) {
+            const orderTotal = Number(order.total);
+            const orderPaid = order.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+            const balance = orderTotal - orderPaid;
+            if (balance > 0.01) receivables += balance;
+        }
+
+        const revenue = Number(monthPayments._sum.amount) || 0;
+        const avgTicket = monthOrders > 0 ? revenue / monthOrders : 0;
+
+        const dailyRevenue = new Map<string, number>();
+        for (let d = new Date(startOfMonth); d <= endOfMonth; d.setDate(d.getDate() + 1)) {
+            dailyRevenue.set(d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), 0);
+        }
+        for (const p of payments) {
+            const dayStr = p.paidAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+            dailyRevenue.set(dayStr, (dailyRevenue.get(dayStr) || 0) + Number(p.amount));
+        }
+        const chartData = Array.from(dailyRevenue.entries()).map(([date, rev]) => ({ date, revenue: rev }));
+
+        const teamStats = users.map(user => {
+            const fixedSalary = Number(user.salary) || 0;
+            const commissions = user.commissions.reduce((sum, c) => sum + Number(c.commissionValue), 0);
+            const revenueGenerated = user.assignedOrders.reduce((sum, o) => sum + Number(o.total), 0);
+            return {
+                id: user.id,
+                name: user.name,
+                role: user.role,
+                jobTitle: user.jobTitle || 'N/A',
+                avatarUrl: user.avatarUrl,
+                fixedSalary,
+                commissions,
+                totalPayout: fixedSalary + commissions,
+                revenueGenerated,
+                ordersCount: user.assignedOrders.length,
+                roi: (fixedSalary + commissions) > 0 ? revenueGenerated / (fixedSalary + commissions) : 0,
+            };
+        });
+
+        return {
+            stats: { revenue, avgTicket, receivables, paymentCount: monthPayments._count, completedOrders: monthOrders },
+            chartData,
+            team: {
+                users: teamStats,
+                totalPayroll: teamStats.reduce((sum, u) => sum + u.totalPayout, 0),
+                totalFixed: teamStats.reduce((sum, u) => sum + u.fixedSalary, 0),
+                totalCommissions: teamStats.reduce((sum, u) => sum + u.commissions, 0),
+            },
         };
     }),
 });

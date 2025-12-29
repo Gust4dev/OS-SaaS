@@ -1,28 +1,24 @@
-'use client';
+"use client";
 
-import { 
-  TrendingUp, 
-  Wallet, 
+import {
+  TrendingUp,
+  Wallet,
   Receipt,
   ArrowLeft,
   Users,
   DollarSign,
-  Briefcase
-} from 'lucide-react';
-import Link from 'next/link';
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription 
-} from '@/components/ui/card';
-import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger 
-} from '@/components/ui/tabs';
+  Briefcase,
+} from "lucide-react";
+import Link from "next/link";
+import dynamic from "next/dynamic";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -30,41 +26,40 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { trpc } from '@/lib/trpc/provider';
-import { cn } from '@/lib/cn';
-import { RoleGuard } from '@/components/auth/RoleGuard';
-import { useUser } from '@clerk/nextjs';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+} from "@/components/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { trpc } from "@/lib/trpc/provider";
+import { cn } from "@/lib/cn";
+import { RoleGuard } from "@/components/auth/RoleGuard";
+import { useUser } from "@clerk/nextjs";
+
+const RevenueChart = dynamic(() => import("@/components/charts/RevenueChart"), {
+  loading: () => <Skeleton className="h-[300px] w-full" />,
+  ssr: false,
+});
 
 export default function FinancialDashboardPage() {
   const { user } = useUser();
   const userRole = user?.publicMetadata?.role as string | undefined;
 
-  const financialStatsQuery = trpc.dashboard.getFinancialStats.useQuery(undefined, { refetchInterval: 30000 });
-  const chartDataQuery = trpc.dashboard.getFinancialChartData.useQuery();
-  const teamStatsQuery = trpc.dashboard.getTeamFinancials.useQuery(undefined, { refetchInterval: 60000 });
+  const { data, isLoading } = trpc.dashboard.getFinancialOverview.useQuery(
+    undefined,
+    {
+      refetchInterval: 30000,
+    }
+  );
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
     }).format(value);
   };
 
   return (
-    <RoleGuard allowed={['OWNER', 'MANAGER']} fallback={<AccessDenied />}>
+    <RoleGuard allowed={["OWNER", "MANAGER"]} fallback={<AccessDenied />}>
       <div className="space-y-8">
         <Header />
 
@@ -75,18 +70,18 @@ export default function FinancialDashboardPage() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
-            <OverviewTab 
-              stats={financialStatsQuery.data} 
-              chartData={chartDataQuery.data} 
-              isLoading={financialStatsQuery.isLoading || chartDataQuery.isLoading} 
+            <OverviewTab
+              stats={data?.stats}
+              chartData={data?.chartData}
+              isLoading={isLoading}
               formatCurrency={formatCurrency}
             />
           </TabsContent>
 
           <TabsContent value="team" className="space-y-4">
-            <TeamTab 
-              data={teamStatsQuery.data} 
-              isLoading={teamStatsQuery.isLoading} 
+            <TeamTab
+              data={data?.team}
+              isLoading={isLoading}
               formatCurrency={formatCurrency}
             />
           </TabsContent>
@@ -123,7 +118,9 @@ function AccessDenied() {
   return (
     <div className="flex h-[50vh] flex-col items-center justify-center gap-4">
       <h2 className="text-2xl font-bold text-destructive">Acesso Negado</h2>
-      <p className="text-muted-foreground">Você não tem permissão para visualizar dados financeiros.</p>
+      <p className="text-muted-foreground">
+        Você não tem permissão para visualizar dados financeiros.
+      </p>
       <Button asChild variant="outline">
         <Link href="/dashboard">Voltar ao Dashboard</Link>
       </Button>
@@ -167,46 +164,7 @@ function OverviewTab({ stats, chartData, isLoading, formatCurrency }: any) {
           <CardDescription>Faturamento diário neste mês</CardDescription>
         </CardHeader>
         <CardContent className="pl-2">
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData || []}>
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="date" 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickMargin={10} 
-                  fontSize={12}
-                  tickFormatter={(value) => value.split('/')[0]} // Show just the day
-                />
-                <YAxis 
-                   tickLine={false} 
-                   axisLine={false} 
-                   tickFormatter={(val) => `R$${val}`}
-                   fontSize={12}
-                />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
-                  itemStyle={{ color: 'hsl(var(--foreground))' }}
-                  formatter={(value: any) => [new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0)), 'Receita']}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  stroke="#22c55e" 
-                  strokeWidth={2}
-                  fillOpacity={1} 
-                  fill="url(#colorRevenue)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          <RevenueChart data={chartData || []} />
         </CardContent>
       </Card>
     </div>
@@ -284,25 +242,37 @@ function TeamTab({ data, isLoading, formatCurrency }: any) {
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={user.avatarUrl} />
-                        <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        <AvatarFallback>
+                          {user.name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col">
                         <span>{user.name}</span>
-                        <span className="text-xs text-muted-foreground md:hidden">{user.jobTitle}</span>
+                        <span className="text-xs text-muted-foreground md:hidden">
+                          {user.jobTitle}
+                        </span>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">{user.jobTitle}</TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {user.jobTitle}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                       <span className="font-bold">{user.ordersCount}</span>
-                       <span className="text-muted-foreground text-xs">ordens</span>
+                      <span className="font-bold">{user.ordersCount}</span>
+                      <span className="text-muted-foreground text-xs">
+                        ordens
+                      </span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-green-600 font-medium">{formatCurrency(user.revenueGenerated)}</TableCell>
+                  <TableCell className="text-green-600 font-medium">
+                    {formatCurrency(user.revenueGenerated)}
+                  </TableCell>
                   <TableCell>{formatCurrency(user.fixedSalary)}</TableCell>
                   <TableCell>{formatCurrency(user.commissions)}</TableCell>
-                  <TableCell className="text-right font-bold">{formatCurrency(user.totalPayout)}</TableCell>
+                  <TableCell className="text-right font-bold">
+                    {formatCurrency(user.totalPayout)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -316,7 +286,7 @@ function TeamTab({ data, isLoading, formatCurrency }: any) {
 function TeamSkeleton() {
   return (
     <div className="space-y-6">
-       <div className="grid gap-6 sm:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-3">
         <Skeleton className="h-32" />
         <Skeleton className="h-32" />
         <Skeleton className="h-32" />
@@ -341,45 +311,49 @@ function StatCard({
   description: string;
   icon: React.ElementType;
   highlight?: boolean;
-  variant?: 'default' | 'warning' | 'danger';
+  variant?: "default" | "warning" | "danger";
 }) {
-  let bgClass = 'bg-card/50 backdrop-blur-sm';
-  let borderClass = '';
-  let iconBgClass = 'bg-primary/10';
-  let iconTextClass = 'text-primary';
-  let valueClass = '';
+  let bgClass = "bg-card/50 backdrop-blur-sm";
+  let borderClass = "";
+  let iconBgClass = "bg-primary/10";
+  let iconTextClass = "text-primary";
+  let valueClass = "";
 
   if (highlight) {
-    bgClass = 'bg-green-500/5';
-    borderClass = 'border-green-500/30';
-    iconBgClass = 'bg-green-500/10';
-    iconTextClass = 'text-green-500';
-    valueClass = 'text-green-600';
-  } else if (variant === 'warning') {
-    bgClass = 'bg-orange-500/5';
-    borderClass = 'border-orange-500/30';
-    iconBgClass = 'bg-orange-500/10';
-    iconTextClass = 'text-orange-500';
-    valueClass = 'text-orange-600';
-  } else if (variant === 'danger') {
-    bgClass = 'bg-red-500/5';
-    borderClass = 'border-red-500/30';
-    iconBgClass = 'bg-red-500/10';
-    iconTextClass = 'text-red-500';
-    valueClass = 'text-red-600';
+    bgClass = "bg-green-500/5";
+    borderClass = "border-green-500/30";
+    iconBgClass = "bg-green-500/10";
+    iconTextClass = "text-green-500";
+    valueClass = "text-green-600";
+  } else if (variant === "warning") {
+    bgClass = "bg-orange-500/5";
+    borderClass = "border-orange-500/30";
+    iconBgClass = "bg-orange-500/10";
+    iconTextClass = "text-orange-500";
+    valueClass = "text-orange-600";
+  } else if (variant === "danger") {
+    bgClass = "bg-red-500/5";
+    borderClass = "border-red-500/30";
+    iconBgClass = "bg-red-500/10";
+    iconTextClass = "text-red-500";
+    valueClass = "text-red-600";
   }
 
   return (
-    <Card className={cn(
-      "overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
-      bgClass,
-      borderClass
-    )}>
+    <Card
+      className={cn(
+        "overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
+        bgClass,
+        borderClass
+      )}
+    >
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        <div className={`rounded-xl p-2.5 ${iconBgClass} transition-colors duration-300 group-hover:scale-110`}>
+        <div
+          className={`rounded-xl p-2.5 ${iconBgClass} transition-colors duration-300 group-hover:scale-110`}
+        >
           <Icon className={`h-4 w-4 ${iconTextClass}`} />
         </div>
       </CardHeader>

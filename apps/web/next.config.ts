@@ -1,15 +1,13 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-    // Enable React strict mode for better development experience
     reactStrictMode: true,
 
-    // Experimental features
     experimental: {
-        // Enable server actions
         serverActions: {
-            bodySizeLimit: '10mb', // For photo uploads
+            bodySizeLimit: '10mb',
         },
+        optimizePackageImports: ['lucide-react', 'recharts', '@radix-ui/react-icons'],
     },
 
     // Image optimization
