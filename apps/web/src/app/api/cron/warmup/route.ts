@@ -7,19 +7,18 @@ export async function HEAD() {
 
 export async function GET(request: Request) {
     const authHeader = request.headers.get('authorization');
-    
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const hasValidAuth = authHeader === `Bearer ${process.env.CRON_SECRET}`;
 
     try {
         const start = Date.now();
         await prisma.$queryRaw`SELECT 1`;
-        
+        const latency = Date.now() - start;
+
         return NextResponse.json({
             status: 'ok',
-            latency: Date.now() - start,
+            latency,
             timestamp: new Date().toISOString(),
+            authenticated: hasValidAuth,
         });
     } catch (error) {
         return NextResponse.json(
