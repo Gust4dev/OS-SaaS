@@ -10,46 +10,16 @@ import { TutorialProvider } from "@/components/providers/TutorialProvider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
-import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@filmtech/database";
-
-export async function generateMetadata(): Promise<Metadata> {
-  const { userId } = await auth();
-
-  if (userId) {
-    const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
-      select: {
-        tenant: {
-          select: {
-            name: true,
-            logo: true,
-          },
-        },
-      },
-    });
-
-    if (user?.tenant) {
-      return {
-        title: `${user.tenant.name} | FilmtechOS`,
-        icons: {
-          icon: user.tenant.logo || "/favicon.ico",
-        },
-      };
-    }
-  }
-
-  return {
-    title: {
-      default: "Filmtech OS",
-      template: "%s | Filmtech OS",
-    },
-    description: "Sistema de Ordem de Serviço para Estéticas Automotivas",
-    icons: {
-      icon: "/favicon.ico",
-    },
-  };
-}
+export const metadata: Metadata = {
+  title: {
+    default: "Filmtech OS",
+    template: "%s | Filmtech OS",
+  },
+  description: "Sistema de Ordem de Serviço para Estéticas Automotivas",
+  icons: {
+    icon: "/favicon.ico",
+  },
+};
 
 export const viewport: Viewport = {
   themeColor: [

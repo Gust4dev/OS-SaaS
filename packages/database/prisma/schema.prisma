@@ -126,6 +126,8 @@ model User {
 
   @@index([tenantId])
   @@index([clerkId])
+  @@index([tenantId, isActive])
+  @@index([email])
 }
 
 model AuditLog {
@@ -285,6 +287,8 @@ model ServiceOrder {
   @@index([tenantId, status])
   @@index([tenantId, scheduledAt])
   @@index([tenantId, assignedToId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status, scheduledAt])
   @@index([code])
 }
 

@@ -192,14 +192,24 @@ export const dashboardRouter = router({
                 where: baseWhere,
                 take: 5,
                 orderBy: { createdAt: 'desc' },
-                include: {
+                select: {
+                    id: true,
+                    code: true,
+                    status: true,
+                    total: true,
+                    createdAt: true,
                     vehicle: {
-                        include: {
-                            customer: { select: { id: true, name: true } },
+                        select: {
+                            brand: true,
+                            model: true,
+                            customer: { select: { name: true } },
                         },
                     },
                     items: {
-                        include: { service: { select: { name: true } } },
+                        select: {
+                            id: true,
+                            service: { select: { name: true } },
+                        },
                     },
                 },
             }),
@@ -212,13 +222,19 @@ export const dashboardRouter = router({
                 },
                 take: 10,
                 orderBy: { scheduledAt: 'asc' },
-                include: {
+                select: {
+                    id: true,
+                    scheduledAt: true,
                     vehicle: {
-                        include: {
+                        select: {
+                            brand: true,
+                            model: true,
                             customer: { select: { name: true } },
                         },
                     },
-                    items: true,
+                    items: {
+                        select: { id: true },
+                    },
                 },
             }),
         ]);

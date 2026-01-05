@@ -2,6 +2,11 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@filmtech/database";
 import { DashboardShell } from "@/components/layout";
+import {
+  getUserWithTenant,
+  getUserByEmail,
+  getUserCount,
+} from "@/lib/cached-queries";
 
 export default async function DashboardLayout({
   children,
@@ -18,33 +23,12 @@ export default async function DashboardLayout({
 
   if (metadata?.needsOnboarding) redirect("/welcome");
 
-  let user = await prisma.user.findUnique({
-    where: { clerkId: userId },
-    select: {
-      id: true,
-      role: true,
-      jobTitle: true,
-      tenantId: true,
-      clerkId: true,
-      status: true,
-    },
-  });
+  let user = await getUserWithTenant(userId);
 
-  // Link user by email if not found by clerkId
   if (!user) {
     const email = clerkUser?.emailAddresses[0]?.emailAddress;
     if (email) {
-      const existingByEmail = await prisma.user.findFirst({
-        where: { email },
-        select: {
-          id: true,
-          role: true,
-          jobTitle: true,
-          tenantId: true,
-          clerkId: true,
-          status: true,
-        },
-      });
+      const existingByEmail = await getUserByEmail(email);
 
       if (existingByEmail) {
         await prisma.user.update({
@@ -59,7 +43,7 @@ export default async function DashboardLayout({
   if (user?.status === "INVITED") redirect("/awaiting-invite");
 
   if (!user) {
-    const userCount = await prisma.user.count();
+    const userCount = await getUserCount();
     redirect(userCount === 0 ? "/setup" : "/welcome");
   }
 

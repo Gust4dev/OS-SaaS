@@ -7,7 +7,18 @@ const nextConfig: NextConfig = {
         serverActions: {
             bodySizeLimit: '10mb',
         },
-        optimizePackageImports: ['lucide-react', 'recharts', '@radix-ui/react-icons'],
+        optimizePackageImports: [
+            'lucide-react',
+            'recharts',
+            '@radix-ui/react-icons',
+            'framer-motion',
+            'date-fns',
+            '@tanstack/react-query',
+        ],
+    },
+
+    compiler: {
+        removeConsole: process.env.NODE_ENV === 'production',
     },
 
     images: {
