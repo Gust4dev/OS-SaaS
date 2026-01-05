@@ -11,7 +11,7 @@ export const notificationRouter = router({
         .query(async ({ ctx, input }) => {
             const items = await ctx.db.notificationLog.findMany({
                 where: {
-                    tenantId: ctx.user.tenantId!,
+                    tenantId: ctx.user?.tenantId!,
                 },
                 orderBy: {
                     createdAt: 'desc',
@@ -21,7 +21,7 @@ export const notificationRouter = router({
 
             const unreadCount = await ctx.db.notificationLog.count({
                 where: {
-                    tenantId: ctx.user.tenantId!,
+                    tenantId: ctx.user?.tenantId!,
                     status: 'pending',
                 },
             });
@@ -38,7 +38,7 @@ export const notificationRouter = router({
             return ctx.db.notificationLog.update({
                 where: {
                     id: input.id,
-                    tenantId: ctx.user.tenantId!,
+                    tenantId: ctx.user?.tenantId!,
                 },
                 data: {
                     status: 'read',
@@ -46,3 +46,4 @@ export const notificationRouter = router({
             });
         }),
 });
+
