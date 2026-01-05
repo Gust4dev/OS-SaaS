@@ -88,6 +88,7 @@ model Tenant {
   orders        ServiceOrder[]
   settlements   CommissionSettlement[]
   notifications NotificationLog[]
+  auditLogs     AuditLog[]
 }
 
 enum UserStatus {
@@ -121,9 +122,30 @@ model User {
   assignedOrders ServiceOrder[]          @relation("AssignedTo")
   createdOrders  ServiceOrder[]          @relation("CreatedBy")
   commissions    OrderItemCommission[]
+  auditLogs      AuditLog[]
 
   @@index([tenantId])
   @@index([clerkId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([entityType, entityId])
 }
 
 // Core Entities

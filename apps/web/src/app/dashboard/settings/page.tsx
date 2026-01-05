@@ -1,12 +1,22 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { ArrowLeft, Save, Loader2, Settings, Palette, CreditCard, Upload, Link as LinkIcon, Image as ImageIcon } from 'lucide-react';
-import Link from 'next/link';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  ArrowLeft,
+  Save,
+  Loader2,
+  Settings,
+  Palette,
+  CreditCard,
+  Upload,
+  Link as LinkIcon,
+  Image as ImageIcon,
+} from "lucide-react";
+import Link from "next/link";
 import {
   Button,
   Card,
@@ -21,20 +31,20 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-} from '@/components/ui';
-import { trpc } from '@/lib/trpc/provider';
-import { toast } from 'sonner';
-import { convertFileToWebP } from '@/lib/image-conversion';
+} from "@/components/ui";
+import { trpc } from "@/lib/trpc/provider";
+import { toast } from "sonner";
+import { convertFileToWebP } from "@/lib/image-conversion";
 
 const settingsSchema = z.object({
-  name: z.string().min(2, 'Nome muito curto').optional(),
-  logo: z.string().optional().or(z.literal('')),
-  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor inválida'),
-  secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor inválida'),
+  name: z.string().min(2, "Nome muito curto").optional(),
+  logo: z.string().optional().or(z.literal("")),
+  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor inválida"),
+  secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor inválida"),
   pixKey: z.string().optional(),
   paymentTerms: z.string().optional(),
   phone: z.string().optional(),
-  email: z.string().email('Email inválido').optional().or(z.literal('')),
+  email: z.string().email("Email inválido").optional().or(z.literal("")),
   address: z.string().optional(),
   cnpj: z.string().optional(),
 });
@@ -44,7 +54,7 @@ type SettingsFormData = z.infer<typeof settingsSchema>;
 export default function SettingsPage() {
   const router = useRouter();
   const utils = trpc.useUtils();
-  const [logoMode, setLogoMode] = useState<'url' | 'upload'>('url');
+  const [logoMode, setLogoMode] = useState<"url" | "upload">("url");
   const [isUploading, setIsUploading] = useState(false);
 
   const { data: settings, isLoading } = trpc.settings.get.useQuery();
@@ -78,31 +88,33 @@ export default function SettingsPage() {
       }
     }
 
-    return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+    return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(
+      l * 100
+    )}%`;
   };
 
   const updateMutation = trpc.settings.update.useMutation({
     onSuccess: (_, variables) => {
-      toast.success('Configurações salvas com sucesso!');
-      
+      toast.success("Configurações salvas com sucesso!");
+
       // Apply primary color immediately
       if (variables.primaryColor) {
         const primaryHSL = hexToHSL(variables.primaryColor);
-        document.documentElement.style.setProperty('--primary', primaryHSL);
-        document.documentElement.style.setProperty('--ring', primaryHSL);
+        document.documentElement.style.setProperty("--primary", primaryHSL);
+        document.documentElement.style.setProperty("--ring", primaryHSL);
       }
-      
+
       // Apply secondary color immediately
       if (variables.secondaryColor) {
         const secondaryHSL = hexToHSL(variables.secondaryColor);
-        document.documentElement.style.setProperty('--secondary', secondaryHSL);
+        document.documentElement.style.setProperty("--secondary", secondaryHSL);
       }
-      
+
       // Invalidate cache to propagate changes globally
       utils.settings.get.invalidate();
     },
     onError: (error) => {
-      toast.error(error.message || 'Erro ao salvar configurações');
+      toast.error(error.message || "Erro ao salvar configurações");
     },
   });
 
@@ -116,56 +128,54 @@ export default function SettingsPage() {
   } = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
-      name: '',
-      logo: '',
-      primaryColor: '#DC2626',
-      secondaryColor: '#1F2937',
-      pixKey: '',
-      paymentTerms: '',
-      phone: '',
-      email: '',
-      address: '',
-      cnpj: '',
+      name: "",
+      logo: "",
+      primaryColor: "#DC2626",
+      secondaryColor: "#1F2937",
+      pixKey: "",
+      paymentTerms: "",
+      phone: "",
+      email: "",
+      address: "",
+      cnpj: "",
     },
   });
 
   useEffect(() => {
     if (settings) {
       reset({
-        name: settings.name || '',
-        logo: settings.logo || '',
-        primaryColor: settings.primaryColor || '#DC2626',
-        secondaryColor: settings.secondaryColor || '#1F2937',
-        pixKey: settings.pixKey || '',
-        paymentTerms: settings.paymentTerms || '',
-        phone: settings.phone || '',
-        email: settings.email || '',
-        address: settings.address || '',
-        cnpj: settings.cnpj || '',
+        name: settings.name || "",
+        logo: settings.logo || "",
+        primaryColor: settings.primaryColor || "#DC2626",
+        secondaryColor: settings.secondaryColor || "#1F2937",
+        pixKey: settings.pixKey || "",
+        paymentTerms: settings.paymentTerms || "",
+        phone: settings.phone || "",
+        email: settings.email || "",
+        address: settings.address || "",
+        cnpj: settings.cnpj || "",
       });
-      
+
       // Check if logo is a local upload to set initial mode
-      if (settings.logo && settings.logo.startsWith('/uploads/')) {
-        setLogoMode('upload');
+      if (settings.logo && settings.logo.startsWith("/uploads/")) {
+        setLogoMode("upload");
       }
     }
   }, [settings, reset]);
-
-
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const originalFile = e.target.files?.[0];
     if (!originalFile) return;
 
     // Validate file type (allow any image, we will convert)
-    if (!originalFile.type.startsWith('image/')) {
-      toast.error('Por favor, selecione uma imagem válida');
+    if (!originalFile.type.startsWith("image/")) {
+      toast.error("Por favor, selecione uma imagem válida");
       return;
     }
 
     // Validate file size (max 50MB initial - conversion usually reduces it)
     if (originalFile.size > 50 * 1024 * 1024) {
-      toast.error('A imagem deve ter no máximo 50MB');
+      toast.error("A imagem deve ter no máximo 50MB");
       return;
     }
 
@@ -176,24 +186,24 @@ export default function SettingsPage() {
       const file = await convertFileToWebP(originalFile);
 
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
-      const response = await fetch('/api/upload/local', {
-        method: 'POST',
+      const response = await fetch("/api/upload", {
+        method: "POST",
         body: formData,
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Erro ao fazer upload');
+        throw new Error(data.error || "Erro ao fazer upload");
       }
 
-      setValue('logo', data.url, { shouldDirty: true, shouldValidate: true });
-      toast.success('Upload realizado com sucesso!');
+      setValue("logo", data.url, { shouldDirty: true, shouldValidate: true });
+      toast.success("Upload realizado com sucesso!");
     } catch (error) {
-      console.error('Upload Error:', error);
-      toast.error('Erro ao fazer upload da imagem');
+      console.error("Upload Error:", error);
+      toast.error("Erro ao fazer upload da imagem");
     } finally {
       setIsUploading(false);
     }
@@ -214,8 +224,8 @@ export default function SettingsPage() {
     });
   };
 
-  const primaryColor = watch('primaryColor');
-  const logoUrl = watch('logo');
+  const primaryColor = watch("primaryColor");
+  const logoUrl = watch("logo");
 
   if (isLoading) {
     return (
@@ -244,9 +254,7 @@ export default function SettingsPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
-            <p className="text-muted-foreground">
-              Personalize sua empresa
-            </p>
+            <p className="text-muted-foreground">Personalize sua empresa</p>
           </div>
         </div>
         <Button
@@ -267,7 +275,10 @@ export default function SettingsPage() {
         </Button>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-6 lg:grid-cols-2">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="grid gap-6 lg:grid-cols-2"
+      >
         {/* Identidade Visual */}
         <Card>
           <CardHeader>
@@ -286,7 +297,7 @@ export default function SettingsPage() {
               <Input
                 id="name"
                 placeholder="Ex: Minha Empresa Ltda"
-                {...register('name')}
+                {...register("name")}
                 error={errors.name?.message}
               />
             </div>
@@ -294,7 +305,7 @@ export default function SettingsPage() {
             {/* Logo */}
             <div className="space-y-4">
               <Label>Logo do Sistema</Label>
-              
+
               {logoUrl && (
                 <div className="mb-4 flex items-center justify-center rounded-lg border bg-muted/50 p-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -303,15 +314,15 @@ export default function SettingsPage() {
                     alt="Logo Preview"
                     className="h-20 w-auto object-contain"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
+                      (e.target as HTMLImageElement).style.display = "none";
                     }}
                   />
                 </div>
               )}
 
-              <Tabs 
-                value={logoMode} 
-                onValueChange={(val) => setLogoMode(val as 'url' | 'upload')} 
+              <Tabs
+                value={logoMode}
+                onValueChange={(val) => setLogoMode(val as "url" | "upload")}
                 className="w-full"
               >
                 <TabsList className="grid w-full grid-cols-2">
@@ -324,20 +335,20 @@ export default function SettingsPage() {
                     Upload de Arquivo
                   </TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="url" className="mt-4 space-y-2">
                   <Label htmlFor="logo">URL da Imagem</Label>
                   <Input
                     id="logo"
                     placeholder="https://exemplo.com/logo.png"
-                    {...register('logo')}
+                    {...register("logo")}
                     error={errors.logo?.message}
                   />
                   <p className="text-xs text-muted-foreground">
                     Cole o link direto da sua imagem hospedada
                   </p>
                 </TabsContent>
-                
+
                 <TabsContent value="upload" className="mt-4 space-y-2">
                   <Label htmlFor="file-upload">Selecionar Arquivo</Label>
                   <div className="flex items-center gap-2">
@@ -349,10 +360,13 @@ export default function SettingsPage() {
                       disabled={isUploading}
                       className="cursor-pointer"
                     />
-                    {isUploading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                    {isUploading && (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Recomendado: PNG ou SVG, max 2MB. Arquivos locais são salvos em public/uploads.
+                    Recomendado: PNG ou SVG, max 2MB. Arquivos locais são salvos
+                    em public/uploads.
                   </p>
                 </TabsContent>
               </Tabs>
@@ -367,11 +381,15 @@ export default function SettingsPage() {
                     type="color"
                     id="primaryColor"
                     className="h-10 w-14 cursor-pointer rounded border p-1"
-                    value={primaryColor || '#DC2626'}
-                    onChange={(e) => setValue('primaryColor', e.target.value, { shouldDirty: true })}
+                    value={primaryColor || "#DC2626"}
+                    onChange={(e) =>
+                      setValue("primaryColor", e.target.value, {
+                        shouldDirty: true,
+                      })
+                    }
                   />
                   <Input
-                    {...register('primaryColor')}
+                    {...register("primaryColor")}
                     placeholder="#DC2626"
                     className="flex-1 font-mono"
                     error={errors.primaryColor?.message}
@@ -392,11 +410,15 @@ export default function SettingsPage() {
                     type="color"
                     id="secondaryColor"
                     className="h-10 w-14 cursor-pointer rounded border p-1"
-                    value={watch('secondaryColor') || '#1F2937'}
-                    onChange={(e) => setValue('secondaryColor', e.target.value, { shouldDirty: true })}
+                    value={watch("secondaryColor") || "#1F2937"}
+                    onChange={(e) =>
+                      setValue("secondaryColor", e.target.value, {
+                        shouldDirty: true,
+                      })
+                    }
                   />
                   <Input
-                    {...register('secondaryColor')}
+                    {...register("secondaryColor")}
                     placeholder="#1F2937"
                     className="flex-1 font-mono"
                     error={errors.secondaryColor?.message}
@@ -425,7 +447,7 @@ export default function SettingsPage() {
               <Input
                 id="pixKey"
                 placeholder="CPF, CNPJ, Email, Telefone ou Chave Aleatória"
-                {...register('pixKey')}
+                {...register("pixKey")}
               />
               <p className="text-xs text-muted-foreground">
                 Será exibida nas ordens de serviço
@@ -439,7 +461,7 @@ export default function SettingsPage() {
                 id="paymentTerms"
                 className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Ex: Pagamento à vista. Garantia de 30 dias para serviços..."
-                {...register('paymentTerms')}
+                {...register("paymentTerms")}
               />
             </div>
 
@@ -449,7 +471,7 @@ export default function SettingsPage() {
               <Input
                 id="cnpj"
                 placeholder="00.000.000/0000-00"
-                {...register('cnpj')}
+                {...register("cnpj")}
               />
             </div>
           </CardContent>
@@ -473,7 +495,7 @@ export default function SettingsPage() {
                 <Input
                   id="phone"
                   placeholder="(11) 99999-9999"
-                  {...register('phone')}
+                  {...register("phone")}
                 />
               </div>
               <div className="space-y-2">
@@ -482,7 +504,7 @@ export default function SettingsPage() {
                   id="email"
                   type="email"
                   placeholder="contato@empresa.com"
-                  {...register('email')}
+                  {...register("email")}
                   error={errors.email?.message}
                 />
               </div>
@@ -491,7 +513,7 @@ export default function SettingsPage() {
                 <Input
                   id="address"
                   placeholder="Rua, número, bairro, cidade"
-                  {...register('address')}
+                  {...register("address")}
                 />
               </div>
             </div>

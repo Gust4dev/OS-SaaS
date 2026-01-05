@@ -77,7 +77,19 @@ const tenantMiddleware = middleware(async ({ ctx, next }) => {
     return next({ ctx: { ...ctx, user: ctx.user, tenantId: ctx.user.tenantId } });
 });
 
-export const protectedProcedure = publicProcedure.use(tenantMiddleware);
+// Rate limiting middleware
+const rateLimitMiddleware = middleware(async ({ ctx, next }) => {
+    if (ctx.user?.id) {
+        const { checkRateLimit } = await import('@/lib/rate-limit');
+        const { success } = await checkRateLimit(`user:${ctx.user.id}`);
+        if (!success) {
+            throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'Rate limit exceeded' });
+        }
+    }
+    return next({ ctx });
+});
+
+export const protectedProcedure = publicProcedure.use(tenantMiddleware).use(rateLimitMiddleware);
 
 // Role-based procedures
 const requireRole = (roles: string[]) =>

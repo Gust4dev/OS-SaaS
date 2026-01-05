@@ -256,9 +256,20 @@ export const userRouter = router({
                 data: input.data,
             });
 
-            // Invalidate cache if role was changed
-            if (input.data.role && existing.clerkId) {
-                invalidateUserCache(existing.clerkId);
+            // Log role changes for audit
+            if (input.data.role && input.data.role !== existing.role) {
+                const { createAuditLog } = await import('@/lib/audit');
+                await createAuditLog({
+                    tenantId: ctx.tenantId!,
+                    userId: ctx.user!.id,
+                    action: 'user.role_changed',
+                    entityType: 'User',
+                    entityId: input.id,
+                    oldValue: { role: existing.role },
+                    newValue: { role: input.data.role },
+                }).catch(console.error);
+
+                invalidateUserCache(existing.clerkId!);
             }
 
             return user;
