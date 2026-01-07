@@ -1,52 +1,55 @@
-'use client';
+"use client";
 
-import { use, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { 
-  ArrowLeft, 
-  Camera, 
-  Check, 
-  AlertTriangle, 
+import { use, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Camera,
+  Check,
+  AlertTriangle,
   Loader2,
   ChevronDown,
   ChevronRight,
   Image as ImageIcon,
   X,
   Video,
-} from 'lucide-react';
-import { convertFileToWebPBase64 } from '@/lib/image-conversion';
-import { 
-  Button, 
-  Card, 
-  CardContent, 
-  CardHeader, 
+} from "lucide-react";
+import { convertFileToWebPBase64 } from "@/lib/image-conversion";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
   CardTitle,
   CardDescription,
   Badge,
   Progress,
   Textarea,
-} from '@/components/ui';
-import { trpc } from '@/lib/trpc/provider';
-import { toast } from 'sonner';
-import { 
-  INSPECTION_CHECKLIST, 
+} from "@/components/ui";
+import { trpc } from "@/lib/trpc/provider";
+import { toast } from "sonner";
+import {
+  INSPECTION_CHECKLIST,
   INSPECTION_TYPE_LABELS,
   ITEM_STATUS_LABELS,
   DAMAGE_TYPE_OPTIONS,
   SEVERITY_OPTIONS,
   DAMAGE_TYPE_LABELS,
   SEVERITY_LABELS,
-} from '@/lib/ChecklistDefinition';
+} from "@/lib/ChecklistDefinition";
 
 interface PageProps {
-  params: Promise<{ id: string; type: 'entrada' | 'intermediaria' | 'final' }>;
+  params: Promise<{ id: string; type: "entrada" | "intermediaria" | "final" }>;
 }
 
 export default function InspectionChecklistPage({ params }: PageProps) {
   const { id: orderId, type } = use(params);
   const router = useRouter();
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['exterior', 'rodas']);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([
+    "exterior",
+    "rodas",
+  ]);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
 
   const utils = trpc.useUtils();
@@ -69,7 +72,7 @@ export default function InspectionChecklistPage({ params }: PageProps) {
   const updateItem = trpc.inspection.updateItem.useMutation({
     onSuccess: () => {
       utils.inspection.getByOrderIdAndType.invalidate({ orderId, type });
-      toast.success('Item atualizado!');
+      toast.success("Item atualizado!");
     },
     onError: (error) => {
       toast.error(error.message);
@@ -79,7 +82,7 @@ export default function InspectionChecklistPage({ params }: PageProps) {
   const updateVideo = trpc.inspection.updateVideo.useMutation({
     onSuccess: () => {
       utils.inspection.getByOrderIdAndType.invalidate({ orderId, type });
-      toast.success('Vídeo atualizado!');
+      toast.success("Vídeo atualizado!");
     },
     onError: (error) => {
       toast.error(error.message);
@@ -88,7 +91,7 @@ export default function InspectionChecklistPage({ params }: PageProps) {
 
   const completeInspection = trpc.inspection.complete.useMutation({
     onSuccess: () => {
-      toast.success('Vistoria concluída com sucesso!');
+      toast.success("Vistoria concluída com sucesso!");
       router.push(`/dashboard/orders/${orderId}`);
     },
     onError: (error) => {
@@ -102,56 +105,69 @@ export default function InspectionChecklistPage({ params }: PageProps) {
   };
 
   const toggleCategory = (categoryKey: string) => {
-    setExpandedCategories(prev =>
+    setExpandedCategories((prev) =>
       prev.includes(categoryKey)
-        ? prev.filter(k => k !== categoryKey)
+        ? prev.filter((k) => k !== categoryKey)
         : [...prev, categoryKey]
     );
   };
 
   const handleFileUpload = async (itemId: string, file: File) => {
     setUploadingItemId(itemId);
-    
+
     try {
       // CONVERT TO WEBP BASE64 ON CLIENT SIDE
       const base64 = await convertFileToWebPBase64(file);
-      
+
       updateItem.mutate({
         itemId,
-        status: 'pendente',
+        status: "pendente",
         photoUrl: base64,
       });
       setUploadingItemId(null);
     } catch (error) {
-      toast.error('Erro ao processar/enviar foto');
+      toast.error("Erro ao processar/enviar foto");
       setUploadingItemId(null);
     }
   };
 
-  const handleMarkWithDamage = (itemId: string, data: { notes: string; damageType: string; severity: string }) => {
+  const handleMarkWithDamage = (
+    itemId: string,
+    data: { notes: string; damageType: string; severity: string }
+  ) => {
     updateItem.mutate({
       itemId,
-      status: 'com_avaria',
+      status: "com_avaria",
       notes: data.notes,
-      damageType: data.damageType as 'arranhao' | 'amassado' | 'trinca' | 'mancha' | 'risco' | 'pintura' | 'outro',
-      severity: data.severity as 'leve' | 'moderado' | 'grave',
+      damageType: data.damageType as
+        | "arranhao"
+        | "amassado"
+        | "trinca"
+        | "mancha"
+        | "risco"
+        | "pintura"
+        | "outro",
+      severity: data.severity as "leve" | "moderado" | "grave",
     });
   };
 
   const handleMarkOk = (itemId: string) => {
     updateItem.mutate({
       itemId,
-      status: 'ok',
+      status: "ok",
     });
   };
-
 
   const handleComplete = () => {
     if (!inspectionQuery.data?.id) return;
     completeInspection.mutate({ inspectionId: inspectionQuery.data.id });
   };
 
-  const typeInfo = INSPECTION_TYPE_LABELS[type] || { label: type, emoji: '📋', description: '' };
+  const typeInfo = INSPECTION_TYPE_LABELS[type] || {
+    label: type,
+    emoji: "📋",
+    description: "",
+  };
 
   // Loading state
   if (inspectionQuery.isLoading) {
@@ -177,11 +193,13 @@ export default function InspectionChecklistPage({ params }: PageProps) {
           <Card className="text-center">
             <CardHeader>
               <div className="text-5xl mb-4">{typeInfo.emoji}</div>
-              <CardTitle className="text-2xl">Vistoria de {typeInfo.label}</CardTitle>
+              <CardTitle className="text-2xl">
+                Vistoria de {typeInfo.label}
+              </CardTitle>
               <CardDescription>{typeInfo.description}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {type !== 'intermediaria' && (
+              {type !== "intermediaria" && (
                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -190,15 +208,20 @@ export default function InspectionChecklistPage({ params }: PageProps) {
                         Vistoria Obrigatória
                       </p>
                       <p className="text-sm text-amber-700 dark:text-amber-300">
-                        Esta vistoria é obrigatória e deve ser 100% concluída antes de {type === 'entrada' ? 'iniciar o serviço' : 'entregar o veículo'}.
+                        Esta vistoria é obrigatória e deve ser 100% concluída
+                        antes de{" "}
+                        {type === "entrada"
+                          ? "iniciar o serviço"
+                          : "entregar o veículo"}
+                        .
                       </p>
                     </div>
                   </div>
                 </div>
               )}
 
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 onClick={handleStartInspection}
                 disabled={createInspection.isPending}
               >
@@ -218,17 +241,22 @@ export default function InspectionChecklistPage({ params }: PageProps) {
 
   const inspection = inspectionQuery.data;
   const items = inspection.items || [];
-  
+
   // Group items by category
   const itemsByCategory = INSPECTION_CHECKLIST.reduce((acc, category) => {
-    acc[category.key] = items.filter(item => item.category === category.key);
+    acc[category.key] = items.filter((item) => item.category === category.key);
     return acc;
   }, {} as Record<string, typeof items>);
 
   // Calculate progress
-  const totalRequired = items.filter(i => i.isRequired).length;
-  const completedRequired = items.filter(i => i.isRequired && i.status !== 'pendente').length;
-  const progress = totalRequired > 0 ? Math.round((completedRequired / totalRequired) * 100) : 0;
+  const totalRequired = items.filter((i) => i.isRequired).length;
+  const completedRequired = items.filter(
+    (i) => i.isRequired && i.status !== "pendente"
+  ).length;
+  const progress =
+    totalRequired > 0
+      ? Math.round((completedRequired / totalRequired) * 100)
+      : 0;
   const canComplete = completedRequired === totalRequired;
 
   return (
@@ -243,15 +271,21 @@ export default function InspectionChecklistPage({ params }: PageProps) {
                 Voltar
               </Link>
             </Button>
-            <Badge variant={inspection.status === 'concluida' ? 'default' : 'secondary'}>
-              {inspection.status === 'concluida' ? 'Concluída' : 'Em Andamento'}
+            <Badge
+              variant={
+                inspection.status === "concluida" ? "default" : "secondary"
+              }
+            >
+              {inspection.status === "concluida" ? "Concluída" : "Em Andamento"}
             </Badge>
           </div>
 
           <div className="flex items-center gap-3 mb-4">
             <span className="text-3xl">{typeInfo.emoji}</span>
             <div>
-              <h1 className="text-xl font-bold">Vistoria de {typeInfo.label}</h1>
+              <h1 className="text-xl font-bold">
+                Vistoria de {typeInfo.label}
+              </h1>
               <p className="text-sm text-muted-foreground">
                 {completedRequired} de {totalRequired} itens obrigatórios
               </p>
@@ -259,7 +293,9 @@ export default function InspectionChecklistPage({ params }: PageProps) {
           </div>
 
           <Progress value={progress} className="h-2" />
-          <p className="text-xs text-muted-foreground mt-1 text-right">{progress}% concluído</p>
+          <p className="text-xs text-muted-foreground mt-1 text-right">
+            {progress}% concluído
+          </p>
         </div>
       </div>
 
@@ -268,19 +304,23 @@ export default function InspectionChecklistPage({ params }: PageProps) {
         {INSPECTION_CHECKLIST.map((category) => {
           const categoryItems = itemsByCategory[category.key] || [];
           const isExpanded = expandedCategories.includes(category.key);
-          const completedInCategory = categoryItems.filter(i => i.status !== 'pendente').length;
+          const completedInCategory = categoryItems.filter(
+            (i) => i.status !== "pendente"
+          ).length;
           const totalInCategory = categoryItems.length;
 
-          if (totalInCategory === 0 && category.key === 'detalhes') {
+          if (totalInCategory === 0 && category.key === "detalhes") {
             return null; // Hide empty details section for now
           }
 
           return (
-            <Card 
-              key={category.key} 
-              className={category.critical ? 'border-red-300 dark:border-red-800' : ''}
+            <Card
+              key={category.key}
+              className={
+                category.critical ? "border-red-300 dark:border-red-800" : ""
+              }
             >
-              <CardHeader 
+              <CardHeader
                 className="cursor-pointer"
                 onClick={() => toggleCategory(category.key)}
               >
@@ -322,8 +362,10 @@ export default function InspectionChecklistPage({ params }: PageProps) {
                       isUploading={uploadingItemId === item.id}
                       onUpload={(file) => handleFileUpload(item.id, file)}
                       onMarkOk={() => handleMarkOk(item.id)}
-                      onMarkDamage={(data) => handleMarkWithDamage(item.id, data)}
-                      disabled={inspection.status === 'concluida'}
+                      onMarkDamage={(data) =>
+                        handleMarkWithDamage(item.id, data)
+                      }
+                      disabled={inspection.status === "concluida"}
                     />
                   ))}
                 </CardContent>
@@ -333,76 +375,45 @@ export default function InspectionChecklistPage({ params }: PageProps) {
         })}
       </div>
 
-
-
       {/* Video Section (360/General) */}
       <div className="max-w-2xl mx-auto p-4 pt-0">
-        <Card>
+        <Card className="border-dashed opacity-75">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Video className="h-5 w-5" />
-              Vídeo da Vistoria
+              Vídeo 360º da Vistoria
+              <Badge
+                variant="outline"
+                className="ml-auto text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30"
+              >
+                Em Desenvolvimento
+              </Badge>
             </CardTitle>
             <CardDescription>
               Adicione um vídeo 360º ou geral mostrando o estado do veículo.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {inspection.finalVideoUrl ? (
-                <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                  <video 
-                    src={inspection.finalVideoUrl} 
-                    className="w-full h-full object-cover" 
-                    controls 
-                  />
-                  <Button
-                    size="icon"
-                    variant="destructive"
-                    className="absolute top-2 right-2"
-                    onClick={() => {
-                        if(confirm('Remover vídeo?')) {
-                             updateVideo.mutate({
-                                inspectionId: inspection.id,
-                                videoUrl: ''
-                            });
-                        }
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed rounded-lg p-8 text-center space-y-4">
-                  <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                    <Video className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Carregar vídeo</p>
-                    <p className="text-sm text-muted-foreground">
-                      MP4, WebM ou Ogg (máx. 50MB)
-                    </p>
-                  </div>
-                  <Button variant="outline" onClick={() => {
-                      const url = prompt('Cole a URL do vídeo (simulação de upload):');
-                      if (url) {
-                          updateVideo.mutate({
-                              inspectionId: inspection.id,
-                              videoUrl: url
-                          });
-                      }
-                  }}>
-                    Selecionar Arquivo
-                  </Button>
-                </div>
-              )}
+            <div className="text-center py-8 space-y-3">
+              <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                <Video className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">
+                  Recurso em Desenvolvimento
+                </p>
+                <p className="text-sm text-muted-foreground/70 max-w-sm mx-auto">
+                  Em breve você poderá gravar e anexar vídeos 360º diretamente
+                  na vistoria.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Bottom Action Bar */}
-      {inspection.status !== 'concluida' && (
+      {inspection.status !== "concluida" && (
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4">
           <div className="max-w-2xl mx-auto">
             <Button
@@ -416,10 +427,11 @@ export default function InspectionChecklistPage({ params }: PageProps) {
               ) : (
                 <Check className="h-4 w-4 mr-2" />
               )}
-              {canComplete 
-                ? 'Concluir Vistoria' 
-                : `Faltam ${totalRequired - completedRequired} itens obrigatórios`
-              }
+              {canComplete
+                ? "Concluir Vistoria"
+                : `Faltam ${
+                    totalRequired - completedRequired
+                  } itens obrigatórios`}
             </Button>
           </div>
         </div>
@@ -445,16 +457,30 @@ interface ChecklistItemCardProps {
   disabled: boolean;
   onUpload: (file: File) => void;
   onMarkOk: () => void;
-  onMarkDamage: (data: { notes: string; damageType: string; severity: string }) => void;
+  onMarkDamage: (data: {
+    notes: string;
+    damageType: string;
+    severity: string;
+  }) => void;
 }
 
-function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, onMarkDamage }: ChecklistItemCardProps) {
+function ChecklistItemCard({
+  item,
+  isUploading,
+  disabled,
+  onUpload,
+  onMarkOk,
+  onMarkDamage,
+}: ChecklistItemCardProps) {
   const [showDamageForm, setShowDamageForm] = useState(false);
-  const [notes, setNotes] = useState(item.notes || '');
-  const [damageType, setDamageType] = useState(item.damageType || '');
-  const [severity, setSeverity] = useState(item.severity || '');
+  const [notes, setNotes] = useState(item.notes || "");
+  const [damageType, setDamageType] = useState(item.damageType || "");
+  const [severity, setSeverity] = useState(item.severity || "");
 
-  const statusInfo = ITEM_STATUS_LABELS[item.status] || { label: item.status, color: 'gray' };
+  const statusInfo = ITEM_STATUS_LABELS[item.status] || {
+    label: item.status,
+    color: "gray",
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -470,34 +496,44 @@ function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, on
   };
 
   return (
-    <div className={`
+    <div
+      className={`
       rounded-lg border p-4 
-      ${item.status === 'ok' ? 'border-green-300 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20' : ''}
-      ${item.status === 'com_avaria' ? 'border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20' : ''}
-    `}>
+      ${
+        item.status === "ok"
+          ? "border-green-300 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20"
+          : ""
+      }
+      ${
+        item.status === "com_avaria"
+          ? "border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20"
+          : ""
+      }
+    `}
+    >
       <div className="flex items-start gap-3">
         {/* Photo Preview / Upload Button */}
         <div className="flex-shrink-0">
           {item.photoUrl ? (
             <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted group">
-              <img 
-                src={item.photoUrl} 
+              <img
+                src={item.photoUrl}
                 alt={item.label}
                 className="w-full h-full object-cover"
               />
               {/* Status indicator based on actual status, not just photo presence */}
-              {item.status === 'ok' && (
+              {item.status === "ok" && (
                 <div className="absolute bottom-0 right-0 bg-green-500 rounded-tl-lg p-1">
                   <Check className="h-3 w-3 text-white" />
                 </div>
               )}
-              {item.status === 'com_avaria' && (
+              {item.status === "com_avaria" && (
                 <div className="absolute bottom-0 right-0 bg-amber-500 rounded-tl-lg p-1">
                   <AlertTriangle className="h-3 w-3 text-white" />
                 </div>
               )}
               {/* Allow changing photo if still pending */}
-              {item.status === 'pendente' && !disabled && (
+              {item.status === "pendente" && !disabled && (
                 <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
                   <input
                     type="file"
@@ -511,20 +547,26 @@ function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, on
                 </label>
               )}
             </div>
-          ) : item.status === 'ok' ? (
+          ) : item.status === "ok" ? (
             <div className="flex items-center justify-center w-16 h-16 rounded-lg bg-green-100 dark:bg-green-900/30">
               <Check className="h-8 w-8 text-green-600" />
             </div>
-          ) : item.status === 'com_avaria' ? (
+          ) : item.status === "com_avaria" ? (
             <div className="flex items-center justify-center w-16 h-16 rounded-lg bg-amber-100 dark:bg-amber-900/30">
               <AlertTriangle className="h-8 w-8 text-amber-600" />
             </div>
           ) : (
-            <label className={`
+            <label
+              className={`
               flex items-center justify-center w-16 h-16 rounded-lg border-2 border-dashed 
-              ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-primary hover:bg-muted/50'}
+              ${
+                disabled
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer hover:border-primary hover:bg-muted/50"
+              }
               border-muted-foreground/30
-            `}>
+            `}
+            >
               <input
                 type="file"
                 accept="image/*"
@@ -548,11 +590,13 @@ function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, on
             <div>
               <p className="font-medium">{item.label}</p>
             </div>
-            <Badge 
+            <Badge
               variant={
-                item.status === 'ok' ? 'default' : 
-                item.status === 'com_avaria' ? 'destructive' : 
-                'outline'
+                item.status === "ok"
+                  ? "default"
+                  : item.status === "com_avaria"
+                  ? "destructive"
+                  : "outline"
               }
               className="flex-shrink-0"
             >
@@ -561,27 +605,43 @@ function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, on
           </div>
 
           {/* Damage info display */}
-          {item.status === 'com_avaria' && (item.damageType || item.severity) && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {item.damageType && (
-                <Badge variant="outline" className="text-amber-700 border-amber-300">
-                  {DAMAGE_TYPE_LABELS[item.damageType] || item.damageType}
-                </Badge>
-              )}
-              {item.severity && (
-                <Badge 
-                  variant="outline" 
-                  className={`
-                    ${item.severity === 'leve' ? 'text-yellow-700 border-yellow-300' : ''}
-                    ${item.severity === 'moderado' ? 'text-orange-700 border-orange-300' : ''}
-                    ${item.severity === 'grave' ? 'text-red-700 border-red-300' : ''}
+          {item.status === "com_avaria" &&
+            (item.damageType || item.severity) && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {item.damageType && (
+                  <Badge
+                    variant="outline"
+                    className="text-amber-700 border-amber-300"
+                  >
+                    {DAMAGE_TYPE_LABELS[item.damageType] || item.damageType}
+                  </Badge>
+                )}
+                {item.severity && (
+                  <Badge
+                    variant="outline"
+                    className={`
+                    ${
+                      item.severity === "leve"
+                        ? "text-yellow-700 border-yellow-300"
+                        : ""
+                    }
+                    ${
+                      item.severity === "moderado"
+                        ? "text-orange-700 border-orange-300"
+                        : ""
+                    }
+                    ${
+                      item.severity === "grave"
+                        ? "text-red-700 border-red-300"
+                        : ""
+                    }
                   `}
-                >
-                  {SEVERITY_LABELS[item.severity]?.label || item.severity}
-                </Badge>
-              )}
-            </div>
-          )}
+                  >
+                    {SEVERITY_LABELS[item.severity]?.label || item.severity}
+                  </Badge>
+                )}
+              </div>
+            )}
 
           {/* Notes */}
           {item.notes && (
@@ -589,24 +649,24 @@ function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, on
           )}
 
           {/* Actions for pending items */}
-          {item.status === 'pendente' && !disabled && (
+          {item.status === "pendente" && !disabled && (
             <div className="mt-3 space-y-3">
               {!showDamageForm ? (
                 <div className="flex flex-wrap gap-2">
                   {/* Mark as OK without photo */}
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                    onClick={onMarkOk}  
+                    onClick={onMarkOk}
                   >
                     <Check className="h-3 w-3 mr-1" />
                     OK sem avaria
                   </Button>
 
                   {/* Mark with damage */}
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="sm"
                     className="text-amber-600 hover:text-amber-700"
                     onClick={() => setShowDamageForm(true)}
@@ -617,41 +677,53 @@ function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, on
                 </div>
               ) : (
                 <div className="w-full space-y-3 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Registrar Avaria</p>
-                  
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    Registrar Avaria
+                  </p>
+
                   {/* Damage Type Select */}
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Tipo de Avaria *</label>
-                    <select 
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Tipo de Avaria *
+                    </label>
+                    <select
                       className="w-full p-2 rounded-md border bg-background text-sm"
                       value={damageType}
                       onChange={(e) => setDamageType(e.target.value)}
                     >
                       <option value="">Selecione...</option>
-                      {DAMAGE_TYPE_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      {DAMAGE_TYPE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   {/* Severity Select */}
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Gravidade *</label>
-                    <select 
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Gravidade *
+                    </label>
+                    <select
                       className="w-full p-2 rounded-md border bg-background text-sm"
                       value={severity}
                       onChange={(e) => setSeverity(e.target.value)}
                     >
                       <option value="">Selecione...</option>
-                      {SEVERITY_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      {SEVERITY_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   {/* Notes */}
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Observações (opcional)</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Observações (opcional)
+                    </label>
                     <Textarea
                       placeholder="Descreva detalhes adicionais..."
                       value={notes}
@@ -662,16 +734,16 @@ function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, on
 
                   {/* Actions */}
                   <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       variant="destructive"
                       onClick={handleConfirmDamage}
                       disabled={!damageType || !severity}
                     >
                       Confirmar Avaria
                     </Button>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       variant="ghost"
                       onClick={() => setShowDamageForm(false)}
                     >
@@ -687,4 +759,3 @@ function ChecklistItemCard({ item, isUploading, disabled, onUpload, onMarkOk, on
     </div>
   );
 }
-

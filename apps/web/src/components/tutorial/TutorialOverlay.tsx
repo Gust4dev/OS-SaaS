@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import { useTutorial } from "@/hooks/useTutorial";
 import { TutorialCard } from "./TutorialCard";
 import { TutorialSpotlight } from "./TutorialSpotlight";
+import { SetupLoadingScreen } from "@/components/setup/SetupLoadingScreen";
 import {
   Sparkles,
   LayoutDashboard,
@@ -34,17 +35,33 @@ export function TutorialOverlay() {
 
   // Ensure component only renders on client
   const [isMounted, setIsMounted] = useState(false);
+  // Show loading screen before starting tutorial
+  const [showLoadingScreen, setShowLoadingScreen] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // Auto-start tutorial from setup
+  // Callback when loading screen finishes
+  const handleLoadingComplete = useCallback(() => {
+    setShowLoadingScreen(false);
+    useTutorial.getState().startTutorial();
+    // Clean up URL param
+    const url = new URL(window.location.href);
+    url.searchParams.delete("tutorial");
+    window.history.replaceState({}, "", url.toString());
+  }, []);
+
+  // Auto-start tutorial from setup - show loading screen first
   useEffect(() => {
-    if (searchParams.get("tutorial") === "start") {
-      useTutorial.getState().startTutorial();
+    if (
+      searchParams.get("tutorial") === "start" &&
+      !isActive &&
+      !showLoadingScreen
+    ) {
+      setShowLoadingScreen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, isActive, showLoadingScreen]);
 
   // Step-based navigation
   useEffect(() => {
@@ -78,7 +95,19 @@ export function TutorialOverlay() {
     }
   }, [currentStep, isActive, router, setStep, completeTutorial]);
 
-  if (!isMounted || !isActive) return null;
+  if (!isMounted) return null;
+
+  // Show loading screen before tutorial starts
+  if (showLoadingScreen) {
+    return (
+      <SetupLoadingScreen
+        onComplete={handleLoadingComplete}
+        minDuration={2500}
+      />
+    );
+  }
+
+  if (!isActive) return null;
 
   const totalSteps = 9;
   const stepNumber =

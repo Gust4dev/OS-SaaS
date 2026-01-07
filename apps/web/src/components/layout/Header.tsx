@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import { Menu, Bell, Search } from 'lucide-react';
-import { UserButton } from '@clerk/nextjs';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useRouter } from "next/navigation";
+import { Menu, Bell, Search } from "lucide-react";
+import { UserButton } from "@clerk/nextjs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,27 +12,59 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { trpc } from '@/lib/trpc/provider';
-import { cn } from '@/lib/cn';
+} from "@/components/ui/dropdown-menu";
+import { trpc } from "@/lib/trpc/provider";
+import { cn } from "@/lib/cn";
 
 interface HeaderProps {
   onMobileMenuToggle: () => void;
   isSidebarCollapsed: boolean;
 }
 
-export function Header({ onMobileMenuToggle, isSidebarCollapsed }: HeaderProps) {
-  const { data, isLoading } = trpc.notification.list.useQuery({ limit: 5 }, {
-    refetchInterval: 30000,
+export function Header({
+  onMobileMenuToggle,
+  isSidebarCollapsed,
+}: HeaderProps) {
+  const router = useRouter();
+  const utils = trpc.useUtils();
+
+  const { data, isLoading } = trpc.notification.list.useQuery(
+    { limit: 5 },
+    {
+      refetchInterval: 30000,
+    }
+  );
+
+  const markAsRead = trpc.notification.markAsRead.useMutation({
+    onSuccess: () => {
+      utils.notification.list.invalidate();
+    },
   });
 
   const notifications = data?.items || [];
   const unreadCount = data?.unreadCount || 0;
+
+  const handleNotificationClick = (notification: {
+    id: string;
+    orderId: string | null;
+    status: string;
+  }) => {
+    // Mark as read if pending
+    if (notification.status === "pending") {
+      markAsRead.mutate({ id: notification.id });
+    }
+
+    // Navigate to order if orderId exists
+    if (notification.orderId) {
+      router.push(`/dashboard/orders/${notification.orderId}`);
+    }
+  };
+
   return (
     <header
       className={cn(
-        'sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/40 bg-background/60 backdrop-blur-xl px-6 transition-all duration-500 ease-out',
-        isSidebarCollapsed ? 'lg:pl-[84px]' : 'lg:pl-[276px]'
+        "sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/40 bg-background/60 backdrop-blur-xl px-6 transition-all duration-500 ease-out",
+        isSidebarCollapsed ? "lg:pl-[84px]" : "lg:pl-[276px]"
       )}
     >
       {/* Mobile Menu Button */}
@@ -71,7 +104,7 @@ export function Header({ onMobileMenuToggle, isSidebarCollapsed }: HeaderProps) 
               {/* Notification badge */}
               {unreadCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                  {unreadCount > 9 ? '9+' : unreadCount}
+                  {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
               <span className="sr-only">Notificações</span>
@@ -81,11 +114,13 @@ export function Header({ onMobileMenuToggle, isSidebarCollapsed }: HeaderProps) 
             <DropdownMenuLabel className="flex items-center justify-between">
               <span>Notificações</span>
               {unreadCount > 0 && (
-                 <span className="text-xs font-normal text-muted-foreground">{unreadCount} não lidas</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  {unreadCount} não lidas
+                </span>
               )}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            
+
             <div className="max-h-[300px] overflow-y-auto">
               {isLoading ? (
                 <div className="p-4 text-center text-sm text-muted-foreground">
@@ -97,21 +132,38 @@ export function Header({ onMobileMenuToggle, isSidebarCollapsed }: HeaderProps) 
                 </div>
               ) : (
                 notifications.map((notification) => (
-                  <DropdownMenuItem key={notification.id} className="flex flex-col items-start gap-1 py-3 cursor-pointer">
+                  <DropdownMenuItem
+                    key={notification.id}
+                    className={cn(
+                      "flex flex-col items-start gap-1 py-3 cursor-pointer",
+                      notification.status === "pending" && "bg-primary/5"
+                    )}
+                    onClick={() => handleNotificationClick(notification)}
+                  >
                     <div className="flex w-full items-center justify-between">
-                       <p className="text-sm font-medium">{notification.message}</p>
-                       {notification.status === 'pending' && <span className="h-2 w-2 rounded-full bg-primary" />}
+                      <p className="text-sm font-medium">
+                        {notification.message}
+                      </p>
+                      {notification.status === "pending" && (
+                        <span className="h-2 w-2 rounded-full bg-primary" />
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(notification.createdAt))}
+                      {new Intl.DateTimeFormat("pt-BR", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      }).format(new Date(notification.createdAt))}
                     </p>
                   </DropdownMenuItem>
                 ))
               )}
             </div>
-            
+
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="justify-center text-primary cursor-pointer">
+            <DropdownMenuItem
+              className="justify-center text-primary cursor-pointer"
+              onClick={() => router.push("/dashboard/orders")}
+            >
               Ver todas as notificações
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -121,7 +173,7 @@ export function Header({ onMobileMenuToggle, isSidebarCollapsed }: HeaderProps) 
         <UserButton
           appearance={{
             elements: {
-              avatarBox: 'h-9 w-9',
+              avatarBox: "h-9 w-9",
             },
           }}
         />

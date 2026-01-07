@@ -14,10 +14,14 @@ const validTransitions: Record<string, string[]> = {
 };
 
 // Input schemas
+// MAX_PRICE: Decimal(10,2) supports up to 99,999,999.99
+const MAX_PRICE = 99999999.99;
+const MAX_PRICE_ERROR = 'O valor informado excede o limite permitido. Verifique se inseriu o preço corretamente (ex: 150.00 e não 15000).';
+
 const orderItemSchema = z.object({
     serviceId: z.string().optional(),
     customName: z.string().optional(),
-    price: z.number().min(0),
+    price: z.number().min(0).max(MAX_PRICE, MAX_PRICE_ERROR),
     quantity: z.number().min(1).default(1),
     notes: z.string().optional(),
 });
@@ -58,7 +62,7 @@ const orderUpdateSchema = z.object({
 const paymentSchema = z.object({
     orderId: z.string(),
     method: z.nativeEnum(PaymentMethod),
-    amount: z.number().min(0),
+    amount: z.number().min(0).max(MAX_PRICE, MAX_PRICE_ERROR),
     paidAt: z.date().optional(), // Backdating support
     notes: z.string().optional(),
 });

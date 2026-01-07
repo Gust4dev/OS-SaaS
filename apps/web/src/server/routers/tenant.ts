@@ -45,6 +45,17 @@ export const tenantRouter = router({
                 });
             });
 
+            // Invalidate BOTH caches to prevent redirect loops after setup
+            // 1. In-memory user cache (for tRPC context)
+            if (ctx.user?.clerkId) {
+                const { invalidateUserCache } = await import('@/lib/user-cache');
+                invalidateUserCache(ctx.user.clerkId);
+            }
+
+            // 2. Next.js unstable_cache (used by cached-queries.ts in dashboard layout)
+            const { revalidateTag } = await import('next/cache');
+            revalidateTag('user');
+
             return { success: true };
         }),
 
