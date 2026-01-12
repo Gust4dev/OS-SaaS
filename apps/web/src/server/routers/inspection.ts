@@ -171,8 +171,6 @@ export const inspectionRouter = router({
             const missingItems = definedItems.filter(i => !existingItemKeys.has(i.itemKey));
 
             if (missingItems.length > 0) {
-                console.log(`Syncing ${missingItems.length} missing items for inspection ${inspection.id}`);
-
                 await ctx.db.inspectionItem.createMany({
                     data: missingItems.map(item => ({
                         inspectionId: inspection.id,

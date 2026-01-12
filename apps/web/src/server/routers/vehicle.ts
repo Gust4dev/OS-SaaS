@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { router, protectedProcedure, managerProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 
-// Input validation schemas
 const vehicleCreateSchema = z.object({
     plate: z.string().min(7, 'Placa inválida').max(8),
     brand: z.string().min(2, 'Marca obrigatória'),
@@ -22,7 +21,6 @@ const vehicleListSchema = z.object({
 });
 
 export const vehicleRouter = router({
-    // List vehicles with pagination
     list: protectedProcedure
         .input(vehicleListSchema)
         .query(async ({ ctx, input }) => {
@@ -74,7 +72,6 @@ export const vehicleRouter = router({
             };
         }),
 
-    // Get single vehicle by ID
     getById: protectedProcedure
         .input(z.object({ id: z.string() }))
         .query(async ({ ctx, input }) => {
@@ -107,26 +104,16 @@ export const vehicleRouter = router({
                 });
             }
 
-            // Filter orders to only show those belonging to the current owner
-            // OR if the order has no customerId (legacy), show it? 
-            // User requested "excluded", so strictly showing only matching customerId is safest for privacy.
-            // However, for systems with legacy data, we might want to allow nulls if the vehicle has no owner?
-            // Strict approach:
             if (vehicle.customerId) {
                 vehicle.orders = vehicle.orders.filter(o => o.customerId === vehicle.customerId) as any;
-                // We should also update the count to reflect this filtering if we want it to match
-                // But _count is from DB. If we want accurate count, we might need a separate query or accept mismatch.
-                // For now, let's update the array.
             }
 
             return vehicle;
         }),
 
-    // Create new vehicle
     create: protectedProcedure
         .input(vehicleCreateSchema)
         .mutation(async ({ ctx, input }) => {
-            // Verify customer belongs to tenant (if provided)
             if (input.customerId) {
                 const customer = await ctx.db.customer.findFirst({
                     where: {
@@ -143,7 +130,6 @@ export const vehicleRouter = router({
                 }
             }
 
-            // Check for duplicate plate in tenant
             const existing = await ctx.db.vehicle.findFirst({
                 where: {
                     tenantId: ctx.tenantId!,
@@ -173,7 +159,6 @@ export const vehicleRouter = router({
             return vehicle;
         }),
 
-    // Update vehicle
     update: protectedProcedure
         .input(
             z.object({
@@ -182,7 +167,6 @@ export const vehicleRouter = router({
             })
         )
         .mutation(async ({ ctx, input }) => {
-            // Verify vehicle belongs to tenant
             const existing = await ctx.db.vehicle.findFirst({
                 where: {
                     id: input.id,
@@ -197,7 +181,6 @@ export const vehicleRouter = router({
                 });
             }
 
-            // Check for duplicate plate if changing
             if (input.data.plate && input.data.plate !== existing.plate) {
                 const duplicate = await ctx.db.vehicle.findFirst({
                     where: {
@@ -215,7 +198,6 @@ export const vehicleRouter = router({
                 }
             }
 
-            // Verify customer if changing
             if (input.data.customerId && input.data.customerId !== existing.customerId) {
                 const customer = await ctx.db.customer.findFirst({
                     where: {
@@ -243,7 +225,6 @@ export const vehicleRouter = router({
             return vehicle;
         }),
 
-    // Delete vehicle (manager only)
     delete: managerProcedure
         .input(z.object({ id: z.string() }))
         .mutation(async ({ ctx, input }) => {
@@ -279,7 +260,6 @@ export const vehicleRouter = router({
             return { success: true };
         }),
 
-    // Quick search by plate for autocomplete
     searchByPlate: protectedProcedure
         .input(z.object({ plate: z.string().min(2) }))
         .query(async ({ ctx, input }) => {

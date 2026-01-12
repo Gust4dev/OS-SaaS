@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { router, protectedProcedure, managerProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 
-// Input validation schemas
 const serviceCreateSchema = z.object({
     name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
     description: z.string().optional(),
@@ -24,7 +23,6 @@ const serviceListSchema = z.object({
 });
 
 export const serviceRouter = router({
-    // List services with pagination
     list: protectedProcedure
         .input(serviceListSchema)
         .query(async ({ ctx, input }) => {
@@ -63,7 +61,6 @@ export const serviceRouter = router({
             };
         }),
 
-    // Get single service by ID
     getById: protectedProcedure
         .input(z.object({ id: z.string() }))
         .query(async ({ ctx, input }) => {
@@ -84,7 +81,6 @@ export const serviceRouter = router({
             return service;
         }),
 
-    // Create new service
     create: managerProcedure
         .input(serviceCreateSchema)
         .mutation(async ({ ctx, input }) => {
@@ -99,7 +95,6 @@ export const serviceRouter = router({
             return service;
         }),
 
-    // Update service
     update: managerProcedure
         .input(
             z.object({
@@ -130,7 +125,6 @@ export const serviceRouter = router({
             return service;
         }),
 
-    // Toggle active status
     toggleActive: managerProcedure
         .input(z.object({ id: z.string() }))
         .mutation(async ({ ctx, input }) => {
@@ -156,7 +150,6 @@ export const serviceRouter = router({
             return service;
         }),
 
-    // Delete service (only if no orders use it)
     delete: managerProcedure
         .input(z.object({ id: z.string() }))
         .mutation(async ({ ctx, input }) => {
@@ -191,7 +184,6 @@ export const serviceRouter = router({
             return { success: true };
         }),
 
-    // List active services for selection
     listActive: protectedProcedure.query(async ({ ctx }) => {
         const services = await ctx.db.service.findMany({
             where: {

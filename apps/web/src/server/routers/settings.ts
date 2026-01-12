@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { router, protectedProcedure, managerProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 
-// Regex patterns for PIX key validation
 const pixKeyPatterns = {
     cpf: /^\d{11}$/,
     cnpj: /^\d{14}$/,
@@ -12,7 +11,7 @@ const pixKeyPatterns = {
 };
 
 const isValidPixKey = (key: string): boolean => {
-    if (!key) return true; // Optional field
+    if (!key) return true;
     const cleaned = key.replace(/[.\-/() ]/g, '');
     return Object.values(pixKeyPatterns).some((pattern) => pattern.test(cleaned) || pattern.test(key));
 };
@@ -34,7 +33,6 @@ const updateSettingsSchema = z.object({
 });
 
 export const settingsRouter = router({
-    // Get current tenant settings
     get: protectedProcedure.query(async ({ ctx }) => {
         const tenant = await ctx.db.tenant.findUnique({
             where: { id: ctx.tenantId! },
@@ -66,7 +64,6 @@ export const settingsRouter = router({
         return tenant;
     }),
 
-    // Update tenant settings (owner and manager)
     update: managerProcedure
         .input(updateSettingsSchema)
         .mutation(async ({ ctx, input }) => {

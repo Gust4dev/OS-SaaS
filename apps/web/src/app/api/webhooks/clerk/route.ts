@@ -36,7 +36,7 @@ export async function POST(req: Request) {
             "svix-signature": svix_signature,
         }) as WebhookEvent
     } catch (err) {
-        console.error('Error verifying webhook:', err);
+        console.error('[Webhook] Verification failed:', err);
         return new Response('Error occured', {
             status: 400
         })
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     const eventType = evt.type;
 
     if (eventType === 'user.created') {
-        const { id, email_addresses, first_name, last_name, image_url, public_metadata } = evt.data as any; // Cast to any to avoid strict type issues with Clerk's Discriminated Union
+        const { id, email_addresses, first_name, last_name, image_url, public_metadata } = evt.data as any;
 
         const email = email_addresses?.[0]?.email_address
         const name = `${first_name ?? ''} ${last_name ?? ''}`.trim() || 'Usuário Sem Nome'
@@ -57,35 +57,22 @@ export async function POST(req: Request) {
         const clerk = await import('@clerk/nextjs/server').then(m => m.clerkClient())
 
         try {
-            // Check if user already exists (by email) - e.g. was INVITED
-            // Using findFirst is safer if email isn't strictly unique globally in schema (though it should be for auth)
             const existingUser = await prisma.user.findFirst({
                 where: { email }
             });
 
             const sentTenantId = public_metadata?.tenantId as string | undefined;
 
-            // SCENARIO 1: User exists in DB (likely INVITED)
-            // We must link this new Clerk Account to the existing DB User
             if (existingUser) {
-                console.log(`[Webhook] Linking Clerk ID ${id} to existing user ${existingUser.id} (Status: ${existingUser.status})`);
-
-                const updatedUser = await prisma.user.update({
+                await prisma.user.update({
                     where: { id: existingUser.id },
                     data: {
                         clerkId: id,
-                        // Update info if provided, but keep existing if not? 
-                        // Usually we want to take the latest from Clerk for profile stuff, 
-                        // but role/tenant is sacred from DB.
                         avatarUrl: image_url || existingUser.avatarUrl,
-                        status: 'ACTIVE', // Activate user
+                        status: 'ACTIVE',
                     }
                 });
 
-                // IMPERATIVE: Correct the Clerk session metadata
-                // The organic sign-up token DOES NOT have the tenantId/role 
-                // because they weren't known at sign-up time (unless invite token was used properly).
-                // Just to be safe, we ALWAYS push the DB truth back to Clerk.
                 await clerk.users.updateUser(id, {
                     publicMetadata: {
                         tenantId: existingUser.tenantId,
@@ -94,22 +81,10 @@ export async function POST(req: Request) {
                     }
                 });
 
-                console.log(`[Webhook] Sync complete. User ${existingUser.id} is now ACTIVE in tenant ${existingUser.tenantId}`);
                 return new Response('User linked', { status: 200 });
             }
 
-            // SCENARIO 2: Brand New User (Trial / Organic)
-            // Only allowed if NO valid tenantId was sent (meaning they are not trying to hack into a tenant)
-            // If they sent a tenantId but weren't in DB, that's weird (invite flow should catch above).
-            // But let's assume if they have tenantId metadata, they should have been in DB.
-
             if (sentTenantId) {
-                // Edge case: Clerk has metadata but DB doesn't have user. 
-                // Maybe DB deleted? Or invite flow glitch?
-                // We create them in that tenant if we trust the metadata.
-                // But generally, the invite flow pre-creates the DB user.
-                console.warn(`[Webhook] User ${id} has tenantId ${sentTenantId} but not found in DB. Creating as MEMBER.`);
-
                 await prisma.user.create({
                     data: {
                         clerkId: id,
@@ -121,16 +96,12 @@ export async function POST(req: Request) {
                         status: 'ACTIVE',
                     }
                 });
-                // No need to update metadata, it's already there (presumably)
                 return new Response('User created in existing tenant', { status: 200 });
             }
 
-            // SCENARIO 3: Fresh Signup (Pending Activation - awaiting Pix payment)
             const tenantName = `Estética de ${first_name ?? 'Usuário'}`.trim()
             const baseSlug = tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
             const slug = `${baseSlug}-${Date.now().toString(36)}`
-
-            console.log(`[Webhook] Creating new Tenant (PENDING): ${tenantName}`);
 
             await prisma.$transaction(async (tx) => {
                 const newTenant = await tx.tenant.create({
@@ -138,7 +109,6 @@ export async function POST(req: Request) {
                         name: tenantName,
                         slug,
                         status: 'PENDING_ACTIVATION',
-                        // trialStartedAt and trialEndsAt will be set when admin activates the trial
                     }
                 })
 
@@ -150,12 +120,10 @@ export async function POST(req: Request) {
                         avatarUrl: image_url,
                         role: UserRole.OWNER,
                         tenantId: newTenant.id,
-                        status: 'ACTIVE' // Owners start active
+                        status: 'ACTIVE'
                     }
                 })
 
-                // Back-propagate to Clerk so their session works immediately (after refresh)
-                // This is crucial for the very first login
                 await clerk.users.updateUser(id, {
                     publicMetadata: {
                         tenantId: newTenant.id,
@@ -165,10 +133,8 @@ export async function POST(req: Request) {
                 });
             })
 
-            console.log(`[Webhook] Trial Setup Complete for ${email}`);
-
         } catch (error) {
-            console.error('[Webhook] Error creating user in database:', error)
+            console.error('[Webhook] Error creating user:', error)
             return new Response('Error creating user in database', { status: 500 })
         }
     }

@@ -11,7 +11,6 @@ const inviteUserSchema = z.object({
     name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
     role: z.enum(userRoles),
     defaultCommissionPercent: z.number().min(0).max(100).optional(),
-
     jobTitle: z.string().optional(),
     salary: z.number().min(0).optional(),
     pixKey: z.string().optional(),
@@ -30,7 +29,6 @@ const updateUserSchema = z.object({
 });
 
 export const userRouter = router({
-    // List all users for the tenant
     list: managerProcedure.query(async ({ ctx }) => {
         const users = await ctx.db.user.findMany({
             where: { tenantId: ctx.tenantId! },
@@ -47,7 +45,7 @@ export const userRouter = router({
                 salary: true,
                 admissionDate: true,
                 defaultCommissionPercent: true,
-                isActive: true, // Keep for backward compat
+                isActive: true,
                 createdAt: true,
             },
         });
@@ -55,7 +53,6 @@ export const userRouter = router({
         return users;
     }),
 
-    // List users for select dropdowns (simplified)
     listForSelect: protectedProcedure.query(async ({ ctx }) => {
         const users = await ctx.db.user.findMany({
             where: {
@@ -73,7 +70,6 @@ export const userRouter = router({
         return users;
     }),
 
-    // Get single user details
     getById: managerProcedure
         .input(z.object({ id: z.string() }))
         .query(async ({ ctx, input }) => {
@@ -102,11 +98,9 @@ export const userRouter = router({
             return user;
         }),
 
-    // Invite new user via Clerk
     invite: ownerProcedure
         .input(inviteUserSchema)
         .mutation(async ({ ctx, input }) => {
-
             const existing = await ctx.db.user.findFirst({
                 where: {
                     email: input.email,
@@ -121,7 +115,6 @@ export const userRouter = router({
                 });
             }
 
-
             const tenant = await ctx.db.tenant.findUnique({
                 where: { id: ctx.tenantId! },
                 select: { name: true, slug: true },
@@ -134,22 +127,19 @@ export const userRouter = router({
                 });
             }
 
-
             if (!process.env.CLERK_SECRET_KEY) {
-                console.error('CRITICAL: CLERK_SECRET_KEY is missing');
                 throw new TRPCError({
                     code: 'INTERNAL_SERVER_ERROR',
                     message: 'CONFIG_ERROR: CLERK_SECRET_KEY não encontrada no servidor.',
                 });
             }
-            let appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
+            let appUrl = process.env.NEXT_PUBLIC_APP_URL;
             if (!appUrl && process.env.NODE_ENV === 'development') {
                 appUrl = 'http://localhost:3000';
             }
 
             if (!appUrl) {
-                console.error('CRITICAL: NEXT_PUBLIC_APP_URL is missing');
                 throw new TRPCError({
                     code: 'INTERNAL_SERVER_ERROR',
                     message: 'CONFIG_ERROR: NEXT_PUBLIC_APP_URL não encontrada no servidor.',
@@ -157,9 +147,6 @@ export const userRouter = router({
             }
 
             const clerk = await clerkClient();
-
-
-
 
             const dbUser = await ctx.db.user.create({
                 data: {
@@ -177,7 +164,6 @@ export const userRouter = router({
             });
 
             try {
-
                 const invitation = await clerk.invitations.createInvitation({
                     emailAddress: input.email,
                     publicMetadata: {
@@ -195,11 +181,10 @@ export const userRouter = router({
                     dbUserId: dbUser.id,
                 };
             } catch (error: any) {
-
                 const isDuplicate = error?.errors?.some((e: any) => e.code === 'duplicate_record');
 
                 if (isDuplicate) {
-                    await ctx.db.user.delete({ where: { id: dbUser.id } }).catch(console.error);
+                    await ctx.db.user.delete({ where: { id: dbUser.id } }).catch(() => { });
 
                     throw new TRPCError({
                         code: 'CONFLICT',
@@ -207,9 +192,7 @@ export const userRouter = router({
                     });
                 }
 
-                await ctx.db.user.delete({ where: { id: dbUser.id } }).catch(console.error);
-
-                console.error('Clerk invitation error details:', JSON.stringify(error, null, 2));
+                await ctx.db.user.delete({ where: { id: dbUser.id } }).catch(() => { });
 
                 let errorMessage = 'Unknown error';
                 if (error instanceof Error) {
@@ -225,7 +208,6 @@ export const userRouter = router({
             }
         }),
 
-    // Update user info
     update: ownerProcedure
         .input(z.object({ id: z.string(), data: updateUserSchema }))
         .mutation(async ({ ctx, input }) => {
@@ -243,7 +225,6 @@ export const userRouter = router({
                 });
             }
 
-            // Can't change own role
             if (input.data.role && existing.id === ctx.user!.id) {
                 throw new TRPCError({
                     code: 'FORBIDDEN',
@@ -256,7 +237,6 @@ export const userRouter = router({
                 data: input.data,
             });
 
-            // Log role changes for audit
             if (input.data.role && input.data.role !== existing.role) {
                 const { createAuditLog } = await import('@/lib/audit');
                 await createAuditLog({
@@ -267,7 +247,7 @@ export const userRouter = router({
                     entityId: input.id,
                     oldValue: { role: existing.role },
                     newValue: { role: input.data.role },
-                }).catch(console.error);
+                }).catch(() => { });
 
                 invalidateUserCache(existing.clerkId!);
             }
@@ -275,7 +255,6 @@ export const userRouter = router({
             return user;
         }),
 
-    // Deactivate user
     deactivate: ownerProcedure
         .input(z.object({ id: z.string() }))
         .mutation(async ({ ctx, input }) => {
@@ -293,7 +272,6 @@ export const userRouter = router({
                 });
             }
 
-            // Can't deactivate yourself
             if (existing.id === ctx.user!.id) {
                 throw new TRPCError({
                     code: 'FORBIDDEN',
@@ -309,7 +287,6 @@ export const userRouter = router({
             return user;
         }),
 
-    // Reactivate user
     reactivate: ownerProcedure
         .input(z.object({ id: z.string() }))
         .mutation(async ({ ctx, input }) => {
@@ -335,56 +312,9 @@ export const userRouter = router({
             return user;
         }),
 
-    // Get current user info
     me: protectedProcedure.query(async ({ ctx }) => {
         return ctx.user;
     }),
-
-    // DevTools: Switch User Role
-    switchRole: protectedProcedure
-        .input(z.object({
-            targetRole: z.enum(['OWNER', 'MANAGER', 'MEMBER', 'ADMIN_SAAS']),
-        }))
-        .mutation(async ({ ctx, input }) => {
-
-            const isDev = process.env.NODE_ENV === 'development';
-            const isAdmin = ctx.user?.role === 'ADMIN_SAAS';
-
-            if (!isDev && !isAdmin) {
-                throw new TRPCError({
-                    code: 'FORBIDDEN',
-                    message: 'DevTools only',
-                });
-            }
-
-            const clerk = await clerkClient();
-
-            if (!ctx.user?.clerkId) {
-                throw new TRPCError({
-                    code: 'PRECONDITION_FAILED',
-                    message: 'Usuário não vinculado ao Clerk',
-                });
-            }
-
-
-            await ctx.db.user.update({
-                where: { id: ctx.user.id },
-                data: { role: input.targetRole as any }, // Cast to avoid TS issues if enum mismatch temporarily
-            });
-
-
-            await clerk.users.updateUser(ctx.user.clerkId, {
-                publicMetadata: {
-                    role: input.targetRole,
-                },
-            });
-
-
-            invalidateUserCache(ctx.user.clerkId);
-
-            return { success: true, newRole: input.targetRole };
-        }),
-
 
     confirmWaitingForInvite: protectedProcedure.mutation(async ({ ctx }) => {
         if (!ctx.user) {
@@ -394,14 +324,12 @@ export const userRouter = router({
             });
         }
 
-
         await ctx.db.user.update({
             where: { id: ctx.user.id },
             data: {
                 status: 'INVITED',
             },
         });
-
 
         if (ctx.user.clerkId) {
             const clerk = await clerkClient();
@@ -413,7 +341,7 @@ export const userRouter = router({
                     needsOnboarding: false,
                     awaitingInvite: true,
                 },
-            }).catch(console.error);
+            }).catch(() => { });
 
             invalidateUserCache(ctx.user.clerkId);
         }

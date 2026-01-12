@@ -193,8 +193,6 @@ export const adminRouter = router({
                 },
             });
 
-            console.log(`[Admin] Activated trial for ${tenant.name} until ${trialEndsAt.toISOString()}`);
-
             return {
                 success: true,
                 tenant: {
@@ -242,8 +240,6 @@ export const adminRouter = router({
                 data: { trialEndsAt: newEnd },
             });
 
-            console.log(`[Admin] Extended trial for ${tenant.name} to ${newEnd.toISOString()}`);
-
             return {
                 success: true,
                 tenant: {
@@ -285,8 +281,6 @@ export const adminRouter = router({
                 where: { id: tenantId },
                 data: { status: 'SUSPENDED' },
             });
-
-            console.log(`[Admin] Suspended ${tenant.name}. Reason: ${reason || 'Not specified'}`);
 
             return {
                 success: true,
@@ -340,8 +334,6 @@ export const adminRouter = router({
                 where: { id: tenantId },
                 data,
             });
-
-            console.log(`[Admin] Reactivated ${tenant.name} as ${asStatus}`);
 
             return {
                 success: true,
