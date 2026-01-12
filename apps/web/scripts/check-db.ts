@@ -1,4 +1,4 @@
-import { prisma } from '@filmtech/database'
+import { prisma } from '@autevo/database'
 
 async function main() {
     console.log('🔍 Checking Database...')

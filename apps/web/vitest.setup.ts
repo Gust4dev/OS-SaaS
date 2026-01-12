@@ -6,7 +6,7 @@ process.env.UPSTASH_REDIS_REST_URL = 'https://test.upstash.io';
 process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
 
 // Mock Prisma
-vi.mock('@filmtech/database', () => ({
+vi.mock('@autevo/database', () => ({
     prisma: {
         auditLog: {
             create: vi.fn().mockResolvedValue({ id: 'test-id' }),

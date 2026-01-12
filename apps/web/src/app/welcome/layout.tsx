@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
-import { prisma } from "@filmtech/database";
+import { prisma } from "@autevo/database";
 
 export default async function WelcomeLayout({
   children,

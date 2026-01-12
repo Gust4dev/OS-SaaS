@@ -17,7 +17,7 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),
-            '@filmtech/database': path.resolve(__dirname, '../../packages/database'),
+            '@autevo/database': path.resolve(__dirname, '../../packages/database'),
         },
     },
 });

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -12,15 +12,15 @@ import {
   Package,
   Settings,
   type LucideIcon,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from '@/components/ui/sheet';
-import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/cn';
+} from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/cn";
 
 interface NavItem {
   href: string;
@@ -29,20 +29,24 @@ interface NavItem {
 }
 
 const mainNavItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/orders', label: 'Ordens de Serviço', icon: ClipboardList },
-  { href: '/dashboard/scheduling', label: 'Agendamentos', icon: Calendar },
-  { href: '/dashboard/customers', label: 'Clientes', icon: Users },
-  { href: '/dashboard/vehicles', label: 'Veículos', icon: Car },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  {
+    href: "/dashboard/orders",
+    label: "Ordens de Serviço",
+    icon: ClipboardList,
+  },
+  { href: "/dashboard/scheduling", label: "Agendamentos", icon: Calendar },
+  { href: "/dashboard/customers", label: "Clientes", icon: Users },
+  { href: "/dashboard/vehicles", label: "Veículos", icon: Car },
 ];
 
 const catalogNavItems: NavItem[] = [
-  { href: '/dashboard/services', label: 'Serviços', icon: Wrench },
-  { href: '/dashboard/products', label: 'Produtos', icon: Package },
+  { href: "/dashboard/services", label: "Serviços", icon: Wrench },
+  { href: "/dashboard/products", label: "Produtos", icon: Package },
 ];
 
 const settingsNavItems: NavItem[] = [
-  { href: '/dashboard/settings', label: 'Configurações', icon: Settings },
+  { href: "/dashboard/settings", label: "Configurações", icon: Settings },
 ];
 
 interface MobileNavProps {
@@ -59,25 +63,39 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
         <SheetHeader className="border-b border-border px-6 py-4">
           <SheetTitle className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <span className="text-lg font-bold text-primary-foreground">F</span>
+              <span className="text-lg font-bold text-primary-foreground">
+                F
+              </span>
             </div>
-            <span className="text-lg font-semibold">Filmtech OS</span>
+            <span className="text-lg font-semibold">Autevo</span>
           </SheetTitle>
         </SheetHeader>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-          <NavSection items={mainNavItems} pathname={pathname} onClose={onClose} />
+          <NavSection
+            items={mainNavItems}
+            pathname={pathname}
+            onClose={onClose}
+          />
 
           <Separator className="my-4" />
 
           <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Catálogo
           </p>
-          <NavSection items={catalogNavItems} pathname={pathname} onClose={onClose} />
+          <NavSection
+            items={catalogNavItems}
+            pathname={pathname}
+            onClose={onClose}
+          />
 
           <Separator className="my-4" />
 
-          <NavSection items={settingsNavItems} pathname={pathname} onClose={onClose} />
+          <NavSection
+            items={settingsNavItems}
+            pathname={pathname}
+            onClose={onClose}
+          />
         </nav>
       </SheetContent>
     </Sheet>
@@ -97,8 +115,9 @@ function NavSection({
     <div className="space-y-1">
       {items.map((item) => {
         const Icon = item.icon;
-        const isActive = pathname === item.href ||
-          (item.href !== '/dashboard' && pathname.startsWith(item.href));
+        const isActive =
+          pathname === item.href ||
+          (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
         return (
           <Link
@@ -106,11 +125,9 @@ function NavSection({
             href={item.href}
             onClick={onClose}
             className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-all',
-              'hover:bg-accent hover:text-accent-foreground',
-              isActive
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground'
+              "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-all",
+              "hover:bg-accent hover:text-accent-foreground",
+              isActive ? "bg-primary/10 text-primary" : "text-muted-foreground"
             )}
           >
             <Icon className="h-5 w-5" />

@@ -1,7 +1,7 @@
 import { Webhook } from 'svix'
 import { headers } from 'next/headers'
 import { WebhookEvent } from '@clerk/nextjs/server'
-import { prisma } from '@filmtech/database'
+import { prisma } from '@autevo/database'
 import { UserRole } from '@prisma/client'
 
 export async function POST(req: Request) {
@@ -125,20 +125,20 @@ export async function POST(req: Request) {
                 return new Response('User created in existing tenant', { status: 200 });
             }
 
-            // SCENARIO 3: Fresh Trial (No Tenant)
-            const tenantName = `Oficina de ${first_name ?? 'Usuário'}`.trim()
+            // SCENARIO 3: Fresh Signup (Pending Activation - awaiting Pix payment)
+            const tenantName = `Estética de ${first_name ?? 'Usuário'}`.trim()
             const baseSlug = tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
             const slug = `${baseSlug}-${Date.now().toString(36)}`
 
-            console.log(`[Webhook] Creating new Tenant: ${tenantName}`);
+            console.log(`[Webhook] Creating new Tenant (PENDING): ${tenantName}`);
 
             await prisma.$transaction(async (tx) => {
                 const newTenant = await tx.tenant.create({
                     data: {
                         name: tenantName,
                         slug,
-                        status: 'TRIAL',
-                        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+                        status: 'PENDING_ACTIVATION',
+                        // trialStartedAt and trialEndsAt will be set when admin activates the trial
                     }
                 })
 

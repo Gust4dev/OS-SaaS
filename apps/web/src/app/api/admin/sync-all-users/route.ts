@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { prisma } from '@filmtech/database';
+import { prisma } from '@autevo/database';
 import { clerkClient } from '@clerk/nextjs/server';
 
 /**

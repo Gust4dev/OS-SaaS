@@ -1,4 +1,4 @@
-import type { User } from '@filmtech/database';
+import type { User } from '@autevo/database';
 
 interface CachedUser {
     user: User & { tenant: { id: string; status: string } | null };

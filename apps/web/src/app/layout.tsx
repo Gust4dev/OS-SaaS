@@ -12,8 +12,8 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: {
-    default: "Filmtech OS",
-    template: "%s | Filmtech OS",
+    default: "Autevo",
+    template: "%s | Autevo",
   },
   description: "Sistema de Ordem de Serviço para Estéticas Automotivas",
   icons: {

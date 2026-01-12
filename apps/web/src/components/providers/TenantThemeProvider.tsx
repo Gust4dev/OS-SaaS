@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, createContext, useContext } from 'react';
-import { trpc } from '@/lib/trpc/provider';
+import { useEffect, createContext, useContext } from "react";
+import { trpc } from "@/lib/trpc/provider";
 
 interface TenantTheme {
   logo: string | null;
@@ -19,7 +19,7 @@ export function useTenantTheme() {
 // Convert hex to HSL for CSS variable (Tailwind uses HSL format)
 function hexToHSL(hex: string): string {
   // Remove # if present
-  hex = hex.replace(/^#/, '');
+  hex = hex.replace(/^#/, "");
 
   // Parse hex values
   const r = parseInt(hex.slice(0, 2), 16) / 255;
@@ -50,7 +50,9 @@ function hexToHSL(hex: string): string {
   }
 
   // Return HSL string in format expected by Tailwind CSS variables
-  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(
+    l * 100
+  )}%`;
 }
 
 interface TenantThemeProviderProps {
@@ -66,14 +68,14 @@ export function TenantThemeProvider({ children }: TenantThemeProviderProps) {
   useEffect(() => {
     if (settings?.primaryColor) {
       const hsl = hexToHSL(settings.primaryColor);
-      document.documentElement.style.setProperty('--primary', hsl);
+      document.documentElement.style.setProperty("--primary", hsl);
       // Also set ring color to match
-      document.documentElement.style.setProperty('--ring', hsl);
+      document.documentElement.style.setProperty("--ring", hsl);
     }
 
     if (settings?.secondaryColor) {
       const hsl = hexToHSL(settings.secondaryColor);
-      document.documentElement.style.setProperty('--secondary', hsl);
+      document.documentElement.style.setProperty("--secondary", hsl);
     }
 
     // Cleanup on unmount or when settings change
@@ -84,9 +86,9 @@ export function TenantThemeProvider({ children }: TenantThemeProviderProps) {
 
   const theme: TenantTheme = {
     logo: settings?.logo || null,
-    primaryColor: settings?.primaryColor || '#DC2626',
-    secondaryColor: settings?.secondaryColor || '#1F2937',
-    name: settings?.name || 'Filmtech OS',
+    primaryColor: settings?.primaryColor || "#DC2626",
+    secondaryColor: settings?.secondaryColor || "#1F2937",
+    name: settings?.name || "Autevo",
   };
 
   return (

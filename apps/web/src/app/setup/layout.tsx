@@ -16,7 +16,7 @@ export default async function SetupLayout({
 
   if (metadata?.needsOnboarding) redirect("/welcome");
 
-  const { prisma } = await import("@filmtech/database");
+  const { prisma } = await import("@autevo/database");
 
   let user = await prisma.user.findUnique({
     where: { clerkId: userId },

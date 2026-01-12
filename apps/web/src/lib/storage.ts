@@ -1,14 +1,20 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
+// Debug: Log config at startup (remove in production)
+console.log('[Storage] Endpoint:', process.env.AWS_ENDPOINT);
+console.log('[Storage] Region:', process.env.AWS_REGION);
+console.log('[Storage] Bucket:', process.env.AWS_BUCKET_NAME);
+console.log('[Storage] AccessKeyId:', process.env.AWS_ACCESS_KEY_ID?.slice(0, 8) + '...');
+
 // Initialize S3 Client (works with Supabase, R2, AWS, MinIO)
 const s3Client = new S3Client({
-    region: process.env.AWS_REGION || 'us-east-1',
-    endpoint: process.env.AWS_ENDPOINT!, // REQUIRED for Supabase/R2
+    region: process.env.AWS_REGION || 'auto',
+    endpoint: process.env.AWS_ENDPOINT!,
     credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
     },
-    forcePathStyle: true, // Needed for some S3 compatible providers
+    forcePathStyle: true,
 });
 
 export async function uploadFile(

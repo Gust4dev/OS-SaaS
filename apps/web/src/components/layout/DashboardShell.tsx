@@ -12,7 +12,7 @@ interface DashboardShellProps {
   userRole?: string; // We can use string to avoid strict type coupling or import specific type
 }
 
-const SIDEBAR_COLLAPSED_KEY = "filmtech-sidebar-collapsed";
+const SIDEBAR_COLLAPSED_KEY = "autevo-sidebar-collapsed";
 
 export function DashboardShell({ children, userRole }: DashboardShellProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);

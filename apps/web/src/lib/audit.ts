@@ -1,4 +1,4 @@
-import { prisma } from '@filmtech/database';
+import { prisma } from '@autevo/database';
 
 interface AuditParams {
     tenantId: string;

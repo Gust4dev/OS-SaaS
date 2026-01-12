@@ -129,7 +129,7 @@ export function TutorialOverlay() {
         <div key="welcome-step">
           <TutorialSpotlight targetId="" isActive={false} />
           <TutorialCard
-            title="Bem-vindo ao Filmtech OS! 🚀"
+            title="Bem-vindo ao Autevo! 🚀"
             description={
               <div className="space-y-2">
                 <p>
@@ -348,7 +348,7 @@ export function TutorialOverlay() {
                   suas ordens de serviço.
                 </p>
                 <p className="text-sm text-blue-400 font-semibold">
-                  Bem-vindo ao Filmtech OS! 🚀
+                  Bem-vindo ao Autevo! 🚀
                 </p>
               </div>
             }

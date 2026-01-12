@@ -1,5 +1,5 @@
 {
-  "name": "filmtech-os",
+  "name": "autevo",
   "private": true,
   "workspaces": [
     "apps/*",

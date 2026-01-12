@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { prisma } from "@filmtech/database";
+import { prisma } from "@autevo/database";
 import {
   Card,
   CardContent,

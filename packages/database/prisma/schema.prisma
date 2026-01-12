@@ -1,4 +1,4 @@
-// Filmtech OS - Database Schema
+// Autevo - Database Schema
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,8 +10,10 @@ datasource db {
 
 // Enums
 enum TenantStatus {
+  PENDING_ACTIVATION
   TRIAL
   ACTIVE
+  SUSPENDED
   PAST_DUE
   CANCELED
 }
@@ -66,8 +68,9 @@ model Tenant {
   logo             String?
   primaryColor     String       @default("#DC2626")
   secondaryColor   String       @default("#1F2937")
-  status           TenantStatus @default(TRIAL)
+  status           TenantStatus @default(PENDING_ACTIVATION)
   plan             String       @default("pro_monthly")
+  trialStartedAt   DateTime?
   trialEndsAt      DateTime?
   nextBillingAt    DateTime?
   stripeCustomerId String?
@@ -88,7 +91,6 @@ model Tenant {
   orders        ServiceOrder[]
   settlements   CommissionSettlement[]
   notifications NotificationLog[]
-  auditLogs     AuditLog[]
 }
 
 enum UserStatus {
@@ -116,7 +118,7 @@ model User {
   
   tenantId                 String
   tenant                   Tenant     @relation(fields: [tenantId], references: [id])
-  isActive                 Boolean    @default(true) // Deprecated in favor of status? Keep for backward compat for now.
+  isActive                 Boolean    @default(true)
   createdAt                DateTime   @default(now())
 
   assignedOrders ServiceOrder[]          @relation("AssignedTo")
@@ -126,28 +128,6 @@ model User {
 
   @@index([tenantId])
   @@index([clerkId])
-  @@index([tenantId, isActive])
-  @@index([email])
-}
-
-model AuditLog {
-  id         String   @id @default(cuid())
-  tenantId   String
-  userId     String?
-  action     String
-  entityType String
-  entityId   String?
-  oldValue   Json?
-  newValue   Json?
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now())
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user   User?  @relation(fields: [userId], references: [id])
-
-  @@index([tenantId, createdAt])
-  @@index([entityType, entityId])
 }
 
 // Core Entities
@@ -175,7 +155,7 @@ model Customer {
 }
 
 model Vehicle {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   plate      String
   brand      String
   model      String
@@ -184,9 +164,9 @@ model Vehicle {
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])
   tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
 
   orders ServiceOrder[]
@@ -277,7 +257,6 @@ model ServiceOrder {
   notificationSentAt DateTime?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
-  deletedAt          DateTime?
 
   items       OrderItem[]
   products    OrderProduct[]
@@ -287,8 +266,6 @@ model ServiceOrder {
   @@index([tenantId, status])
   @@index([tenantId, scheduledAt])
   @@index([tenantId, assignedToId])
-  @@index([tenantId, createdAt])
-  @@index([tenantId, status, scheduledAt])
   @@index([code])
 }
 
@@ -448,4 +425,25 @@ model NotificationLog {
 
   @@index([tenantId])
   @@index([orderId])
+}
+
+// Audit Logs
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([entityType, entityId])
 }

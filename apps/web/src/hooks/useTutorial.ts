@@ -75,7 +75,7 @@ export const useTutorial = create<TutorialState>()(
             setStep: (step: TutorialStep) => set({ currentStep: step }),
         }),
         {
-            name: "filmtech-tutorial-storage",
+            name: "autevo-tutorial-storage",
         }
     )
 );

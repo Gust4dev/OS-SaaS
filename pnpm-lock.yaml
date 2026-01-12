@@ -17,15 +17,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@autevo/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@aws-sdk/client-s3':
         specifier: ^3.956.0
         version: 3.956.0
       '@clerk/nextjs':
         specifier: ^6.7.0
         version: 6.36.2(next@15.1.9(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      '@filmtech/database':
-        specifier: workspace:*
-        version: link:../../packages/database
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.68.0(react@19.0.0))
@@ -190,11 +190,11 @@ importers:
   packages/database:
     dependencies:
       '@prisma/client':
-        specifier: ^6.0.1
+        specifier: ^6.19.1
         version: 6.19.1(prisma@6.19.1(typescript@5.9.3))(typescript@5.9.3)
     devDependencies:
       prisma:
-        specifier: ^6.0.1
+        specifier: ^6.19.1
         version: 6.19.1(typescript@5.9.3)
       tsx:
         specifier: ^4.19.2

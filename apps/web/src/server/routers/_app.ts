@@ -10,10 +10,12 @@ import { settingsRouter } from './settings';
 import { dashboardRouter } from './dashboard';
 import { inspectionRouter } from './inspection';
 import { scheduleRouter } from './schedule';
+import { adminRouter } from './admin';
 import { notificationRouter } from './notification';
 import { tenantRouter } from './tenant';
 
 export const appRouter = router({
+    admin: adminRouter,
     health: healthRouter,
     customer: customerRouter,
     vehicle: vehicleRouter,

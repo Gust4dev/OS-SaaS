@@ -1,7 +1,7 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { auth } from '@clerk/nextjs/server';
 import { appRouter } from '@/server/routers/_app';
-import { prisma, type User } from '@filmtech/database';
+import { prisma, type User } from '@autevo/database';
 import type { Context } from '@/server/trpc';
 import { clerkClient } from '@clerk/nextjs/server';
 import { getCachedUser, setCachedUser, isCacheValid } from '@/lib/user-cache';

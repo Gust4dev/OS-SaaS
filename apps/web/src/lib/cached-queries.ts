@@ -1,5 +1,5 @@
 import { unstable_cache } from 'next/cache';
-import { prisma } from '@filmtech/database';
+import { prisma } from '@autevo/database';
 
 export const getUserWithTenant = unstable_cache(
     async (clerkId: string) => {

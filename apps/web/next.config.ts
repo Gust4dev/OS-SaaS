@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
         ],
     },
 
-    transpilePackages: ['@filmtech/database'],
+    transpilePackages: ['@autevo/database'],
 
     async headers() {
         return [{

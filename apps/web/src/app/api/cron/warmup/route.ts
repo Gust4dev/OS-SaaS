@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@filmtech/database';
+import { prisma } from '@autevo/database';
 
 export async function HEAD() {
     return new Response(null, { status: 200 });

@@ -129,7 +129,7 @@ export function Sidebar({ isCollapsed, onToggle, userRole }: SidebarProps) {
             )}
             {!isCollapsed && (
               <span className="text-lg font-semibold text-foreground truncate">
-                {theme?.name || "Filmtech OS"}
+                {theme?.name || "Autevo"}
               </span>
             )}
           </Link>

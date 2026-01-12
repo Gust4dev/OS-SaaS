@@ -2,8 +2,8 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
 import '@/lib/superjson-config'; // Register custom transformers
 import { ZodError } from 'zod';
-import { prisma } from '@filmtech/database';
-import type { User } from '@filmtech/database';
+import { prisma } from '@autevo/database';
+import type { User } from '@autevo/database';
 
 export interface Context {
     db: typeof prisma;
@@ -70,6 +70,20 @@ const tenantMiddleware = middleware(async ({ ctx, next }) => {
         tenantCache[ctx.user.tenantId] = { status, timestamp: now };
     }
 
+    if (status === 'PENDING_ACTIVATION') {
+        throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Account pending activation. Please complete payment.',
+        });
+    }
+
+    if (status === 'SUSPENDED') {
+        throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Account suspended. Please contact support.',
+        });
+    }
+
     if (status === 'CANCELED') {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Subscription canceled' });
     }
@@ -77,19 +91,7 @@ const tenantMiddleware = middleware(async ({ ctx, next }) => {
     return next({ ctx: { ...ctx, user: ctx.user, tenantId: ctx.user.tenantId } });
 });
 
-// Rate limiting middleware
-const rateLimitMiddleware = middleware(async ({ ctx, next }) => {
-    if (ctx.user?.id) {
-        const { checkRateLimit } = await import('@/lib/rate-limit');
-        const { success } = await checkRateLimit(`user:${ctx.user.id}`);
-        if (!success) {
-            throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'Rate limit exceeded' });
-        }
-    }
-    return next({ ctx });
-});
-
-export const protectedProcedure = publicProcedure.use(tenantMiddleware).use(rateLimitMiddleware);
+export const protectedProcedure = publicProcedure.use(tenantMiddleware);
 
 // Role-based procedures
 const requireRole = (roles: string[]) =>
