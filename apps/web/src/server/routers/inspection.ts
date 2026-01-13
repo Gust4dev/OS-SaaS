@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure, protectedProcedureNoRateLimit, publicProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { generateChecklistItems, REQUIRED_CHECKLIST_ITEMS } from '@/lib/ChecklistDefinition';
+import { uploadFile } from '@/lib/storage';
 
 // Enums
 const inspectionTypeEnum = z.enum(['entrada', 'intermediaria', 'final']);
@@ -484,4 +485,41 @@ export const inspectionRouter = router({
             };
         }),
 
+    // Save digital signature
+    saveSignature: protectedProcedure
+        .input(z.object({
+            inspectionId: z.string(),
+            signatureBase64: z.string(), // data:image/png;base64,...
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const inspection = await ctx.db.inspection.findUnique({
+                where: { id: input.inspectionId },
+                include: { order: { select: { tenantId: true, code: true } } },
+            });
+
+            if (!inspection || inspection.order.tenantId !== ctx.tenantId) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Vistoria não encontrada',
+                });
+            }
+
+            // Convert base64 to buffer
+            const base64Data = input.signatureBase64.replace(/^data:image\/\w+;base64,/, '');
+            const buffer = Buffer.from(base64Data, 'base64');
+            const fileName = `signatures/${ctx.tenantId}/${inspection.order.code}-${inspection.type}-${Date.now()}.png`;
+
+            const signatureUrl = await uploadFile(buffer, fileName, 'image/png');
+
+            const updated = await ctx.db.inspection.update({
+                where: { id: input.inspectionId },
+                data: {
+                    signatureUrl,
+                    signedAt: new Date(),
+                    signedVia: 'digital_canvas',
+                },
+            });
+
+            return updated;
+        }),
 });

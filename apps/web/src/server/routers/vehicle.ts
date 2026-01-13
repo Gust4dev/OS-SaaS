@@ -136,6 +136,7 @@ export const vehicleRouter = router({
                 where: {
                     tenantId: ctx.tenantId!,
                     plate: input.plate.toUpperCase(),
+                    deletedAt: null,
                 },
             });
 
@@ -189,6 +190,7 @@ export const vehicleRouter = router({
                         tenantId: ctx.tenantId!,
                         plate: input.data.plate.toUpperCase(),
                         id: { not: input.id },
+                        deletedAt: null,
                     },
                 });
 

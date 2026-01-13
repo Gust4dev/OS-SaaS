@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useState } from "react";
+import { format, startOfMonth, endOfMonth } from "date-fns";
+import { exportToExcel, formatFilenameDate } from "@/lib/export";
 import {
   Card,
   CardContent,
@@ -44,12 +47,38 @@ export default function FinancialDashboardPage() {
   const { user } = useUser();
   const userRole = user?.publicMetadata?.role as string | undefined;
 
+  const [dateRange, setDateRange] = useState({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
+  });
+
   const { data, isLoading } = trpc.dashboard.getFinancialOverview.useQuery(
-    undefined,
+    {
+      from: dateRange.from,
+      to: dateRange.to,
+    },
     {
       refetchInterval: 30000,
     }
   );
+
+  const { data: topServices, isLoading: isLoadingServices } =
+    trpc.report.getTopServices.useQuery(
+      {
+        from: dateRange.from,
+        to: dateRange.to,
+      },
+      { enabled: !!data }
+    );
+
+  const { data: topCustomers, isLoading: isLoadingCustomers } =
+    trpc.report.getCustomerReport.useQuery(
+      {
+        from: dateRange.from,
+        to: dateRange.to,
+      },
+      { enabled: !!data }
+    );
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -58,13 +87,160 @@ export default function FinancialDashboardPage() {
     }).format(value);
   };
 
+  const handleExport = () => {
+    if (!data) return;
+
+    const rows: any[][] = [];
+
+    // --- SECTION 1: CABEÇALHO PRINCIPAL ---
+    rows.push(["RELATÓRIO FINANCEIRO MESTRE"]);
+    rows.push([
+      "Período:",
+      `${format(dateRange.from, "dd/MM/yyyy")} a ${format(
+        dateRange.to,
+        "dd/MM/yyyy"
+      )}`,
+    ]);
+    rows.push([]); // Spacing
+
+    // --- SECTION 2: RESUMO EXECUTIVO (Em colunas como solicitado) ---
+    rows.push(["RESUMO EXECUTIVO"]);
+    rows.push([
+      "Faturamento (OS)",
+      "Pagamentos Recebidos",
+      "Ticket Médio",
+      "OS Concluídas",
+      "OS Abertas",
+      "Custo de Equipe",
+    ]);
+    rows.push([
+      formatCurrency(data.stats.revenue),
+      formatCurrency(data.stats.revenue), // Baseado no faturamento do período
+      formatCurrency(data.stats.avgTicket),
+      data.stats.completedOrders,
+      data.openOrdersCount,
+      formatCurrency(data.team.totalPayroll),
+    ]);
+    rows.push([]); // Spacing
+    rows.push([]); // Spacing
+
+    // --- SECTION 3: DETALHAMENTO DE FATURAMENTO (OS CONCLUÍDAS) ---
+    rows.push(["DETALHAMENTO DE FATURAMENTO (OS CONCLUÍDAS)"]);
+    rows.push(["Código OS", "Cliente", "Data Conclusão", "Valor OS", "Status"]);
+    if (data.detailedCompletedOrders?.length) {
+      data.detailedCompletedOrders.forEach((os: any) => {
+        rows.push([
+          os.code,
+          os.vehicle?.customer?.name || "N/A",
+          format(new Date(os.completedAt), "dd/MM/yyyy"),
+          formatCurrency(Number(os.total)),
+          "Concluída",
+        ]);
+      });
+    } else {
+      rows.push(["Nenhuma OS concluída no período"]);
+    }
+    rows.push([]); // Spacing
+    rows.push([]); // Spacing
+
+    // --- SECTION 4: DETALHAMENTO DE PAGAMENTOS RECEBIDOS ---
+    rows.push(["DETALHAMENTO DE PAGAMENTOS RECEBIDOS"]);
+    rows.push([
+      "Data Pagamento",
+      "Código OS",
+      "Cliente",
+      "Valor Recebido",
+      "Forma de Pagamento",
+      "Recebido Por",
+    ]);
+    if (data.detailedPayments?.length) {
+      data.detailedPayments.forEach((p: any) => {
+        rows.push([
+          format(new Date(p.paidAt), "dd/MM/yyyy HH:mm"),
+          p.order.code,
+          p.order.vehicle?.customer?.name || "N/A",
+          formatCurrency(Number(p.amount)),
+          p.method,
+          p.receivedBy || "-",
+        ]);
+      });
+    } else {
+      rows.push(["Nenhum pagamento registrado no período"]);
+    }
+    rows.push([]); // Spacing
+    rows.push([]); // Spacing
+
+    // --- SECTION 5: CUSTO E PERFORMANCE DE EQUIPE ---
+    rows.push(["CUSTO E PERFORMANCE DE EQUIPE"]);
+    rows.push([
+      "Funcionário",
+      "Cargo",
+      "OS Realizadas",
+      "Receita Gerada",
+      "Salário Fixo",
+      "Comissão",
+      "Total a Pagar",
+      "ROI",
+    ]);
+    if (data.team.users?.length) {
+      data.team.users.forEach((u: any) => {
+        rows.push([
+          u.name,
+          u.jobTitle,
+          u.ordersCount,
+          formatCurrency(u.revenueGenerated),
+          formatCurrency(u.fixedSalary),
+          formatCurrency(u.commissions),
+          formatCurrency(u.totalPayout),
+          u.roi.toFixed(2),
+        ]);
+      });
+    }
+    rows.push([]); // Spacing
+    rows.push([]); // Spacing
+
+    // --- SECTION 6: ORDENS DE SERVIÇO ABERTAS (BACKLOG) ---
+    rows.push(["ORDENS DE SERVIÇO ABERTAS (BACKLOG)"]);
+    rows.push([
+      "Código OS",
+      "Cliente",
+      "Data Agendada",
+      "Valor Previsto",
+      "Status Atual",
+    ]);
+    if (data.detailedOpenOrders?.length) {
+      data.detailedOpenOrders.forEach((os: any) => {
+        rows.push([
+          os.code,
+          os.vehicle?.customer?.name || "N/A",
+          format(new Date(os.scheduledAt), "dd/MM/yyyy"),
+          formatCurrency(Number(os.total)),
+          os.status,
+        ]);
+      });
+    } else {
+      rows.push(["Nenhuma OS aberta no momento"]);
+    }
+
+    exportToExcel(
+      rows,
+      `Relatorio_Financeiro_Mestre_${formatFilenameDate()}`,
+      "Financeiro Completo"
+    );
+  };
+
   return (
     <RoleGuard
       allowed={["ADMIN_SAAS", "OWNER", "MANAGER", "ADMIN", "admin"]}
       fallback={<AccessDenied />}
     >
       <div className="space-y-8">
-        <Header />
+        <Header
+          dateRange={dateRange}
+          setDateRange={setDateRange}
+          onExport={handleExport}
+          isExportDisabled={!data || isLoading}
+        />
 
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
@@ -76,7 +252,9 @@ export default function FinancialDashboardPage() {
             <OverviewTab
               stats={data?.stats}
               chartData={data?.chartData}
-              isLoading={isLoading}
+              topServices={topServices}
+              topCustomers={topCustomers}
+              isLoading={isLoading || isLoadingServices || isLoadingCustomers}
               formatCurrency={formatCurrency}
             />
           </TabsContent>
@@ -94,7 +272,7 @@ export default function FinancialDashboardPage() {
   );
 }
 
-function Header() {
+function Header({ dateRange, setDateRange, onExport, isExportDisabled }: any) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -105,8 +283,42 @@ function Header() {
           Gestão completa de faturamento, despesas e equipe.
         </p>
       </div>
-      <div className="flex gap-2">
-        <Button variant="ghost" asChild>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 rounded-lg border bg-card p-1">
+          <input
+            type="date"
+            className="bg-transparent px-2 py-1 text-sm focus:outline-none"
+            value={format(dateRange.from, "yyyy-MM-dd")}
+            onChange={(e) =>
+              setDateRange((prev: any) => ({
+                ...prev,
+                from: new Date(e.target.value + "T00:00:00"),
+              }))
+            }
+          />
+          <span className="text-muted-foreground px-1">até</span>
+          <input
+            type="date"
+            className="bg-transparent px-2 py-1 text-sm focus:outline-none"
+            value={format(dateRange.to, "yyyy-MM-dd")}
+            onChange={(e) =>
+              setDateRange((prev: any) => ({
+                ...prev,
+                to: new Date(e.target.value + "T23:59:59"),
+              }))
+            }
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onExport}
+          disabled={isExportDisabled}
+        >
+          <Receipt className="mr-2 h-4 w-4" />
+          Exportar Excel
+        </Button>
+        <Button variant="ghost" size="sm" asChild>
           <Link href="/dashboard">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar
@@ -133,14 +345,21 @@ function AccessDenied() {
 
 // --- Overview Components ---
 
-function OverviewTab({ stats, chartData, isLoading, formatCurrency }: any) {
+function OverviewTab({
+  stats,
+  chartData,
+  topServices,
+  topCustomers,
+  isLoading,
+  formatCurrency,
+}: any) {
   if (isLoading) return <OverviewSkeleton />;
 
   return (
     <div className="space-y-6">
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
-          title="Faturamento Mês"
+          title="Faturamento Período"
           value={formatCurrency(stats?.revenue || 0)}
           description="Recebido em pagamentos (Pix/Cartão)"
           icon={TrendingUp}
@@ -161,13 +380,92 @@ function OverviewTab({ stats, chartData, isLoading, formatCurrency }: any) {
         />
       </div>
 
-      <Card className="col-span-4">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle>Evolução de Receita</CardTitle>
+            <CardDescription>
+              Faturamento diário no período selecionado
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 pb-0">
+            <RevenueChart data={chartData || []} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Serviços Mais Vendidos</CardTitle>
+            <CardDescription>Top 10 serviços por receita</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {topServices?.map((service: any) => (
+                <div
+                  key={service.id}
+                  className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0"
+                >
+                  <div>
+                    <p className="font-medium text-sm">{service.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {service.count} ordens
+                    </p>
+                  </div>
+                  <p className="font-bold text-sm">
+                    {formatCurrency(service.totalRevenue)}
+                  </p>
+                </div>
+              ))}
+              {!topServices?.length && (
+                <p className="text-center py-8 text-muted-foreground text-sm">
+                  Nenhum serviço encontrado.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
         <CardHeader>
-          <CardTitle>Evolução de Receita</CardTitle>
-          <CardDescription>Faturamento diário neste mês</CardDescription>
+          <CardTitle>Ranking de Clientes</CardTitle>
+          <CardDescription>
+            Clientes que mais geraram receita no período
+          </CardDescription>
         </CardHeader>
-        <CardContent className="pl-2">
-          <RevenueChart data={chartData || []} />
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Telefone</TableHead>
+                <TableHead>Qtd. Ordens</TableHead>
+                <TableHead className="text-right">Total Gasto</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {topCustomers?.map((customer: any) => (
+                <TableRow key={customer.id}>
+                  <TableCell className="font-medium">{customer.name}</TableCell>
+                  <TableCell>{customer.phone}</TableCell>
+                  <TableCell>{customer.orderCount}</TableCell>
+                  <TableCell className="text-right font-bold">
+                    {formatCurrency(customer.totalSpent)}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!topCustomers?.length && (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="text-center h-24 text-muted-foreground"
+                  >
+                    Nenhum cliente encontrado.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

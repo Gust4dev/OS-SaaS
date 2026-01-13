@@ -6,9 +6,9 @@ if (!process.env.AWS_ACCESS_KEY_ID) missingEnvVars.push('AWS_ACCESS_KEY_ID');
 if (!process.env.AWS_SECRET_ACCESS_KEY) missingEnvVars.push('AWS_SECRET_ACCESS_KEY');
 if (!process.env.AWS_BUCKET_NAME) missingEnvVars.push('AWS_BUCKET_NAME');
 
-if (missingEnvVars.length > 0) {
-    console.error(`[Storage] Missing environment variables: ${missingEnvVars.join(', ')}`);
-}
+// if (missingEnvVars.length > 0) {
+//     console.error(`[Storage] Missing environment variables: ${missingEnvVars.join(', ')}`);
+// }
 
 const s3Client = new S3Client({
     region: process.env.AWS_REGION || 'auto',

@@ -131,8 +131,24 @@ export async function POST(req: Request) {
 
             console.log('[Webhook] Creating NEW tenant and user...');
             const tenantName = `Estética de ${first_name ?? 'Usuário'}`.trim()
-            const baseSlug = tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
-            const slug = `${baseSlug}-${Date.now().toString(36)}`
+            const baseSlug = tenantName.toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove accents
+                .replace(/[^a-z0-9]/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
+
+            // Check if slug exists
+            let slug = baseSlug;
+            const existingTenant = await prisma.tenant.findUnique({
+                where: { slug },
+                select: { id: true },
+            });
+
+            if (existingTenant) {
+                // If exists, add a short random suffix to keep it unique but readable
+                slug = `${baseSlug}-${Math.random().toString(36).substring(2, 5)}`;
+            }
+
             console.log('[Webhook] Tenant details:', { tenantName, slug });
 
             await prisma.$transaction(async (tx) => {

@@ -318,6 +318,44 @@ export const InspectionPDF = ({
       textAlign: "center",
       marginTop: 20,
     },
+    // Signature Styles
+    signatureSection: {
+      marginTop: 30,
+      paddingTop: 15,
+      borderTopWidth: 1,
+      borderTopColor: "#F1F5F9",
+    },
+    signatureContainer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+    },
+    signatureBlock: {
+      width: "45%",
+      alignItems: "center",
+    },
+    signatureImage: {
+      width: 120,
+      height: 40,
+      objectFit: "contain",
+      marginBottom: 5,
+    },
+    signatureLine: {
+      width: "100%",
+      height: 1,
+      backgroundColor: "#94A3B8",
+      marginBottom: 5,
+    },
+    signatureLabel: {
+      fontSize: 8,
+      color: "#64748B",
+      textAlign: "center",
+    },
+    signatureDate: {
+      fontSize: 7,
+      color: "#94A3B8",
+      marginTop: 2,
+    },
   });
 
   const formatCurrency = (value: number) => {
@@ -544,6 +582,54 @@ export const InspectionPDF = ({
               </Text>
             </View>
           </View>
+
+          {/* Assinatura */}
+          {(saidaInspection?.signatureUrl ||
+            entradaInspection?.signatureUrl) && (
+            <View style={styles.signatureSection}>
+              <View style={styles.signatureContainer}>
+                {entradaInspection?.signatureUrl && (
+                  <View style={styles.signatureBlock}>
+                    <Image
+                      src={entradaInspection.signatureUrl}
+                      style={styles.signatureImage}
+                    />
+                    <View style={styles.signatureLine} />
+                    <Text style={styles.signatureLabel}>
+                      Assinatura de Entrada
+                    </Text>
+                    <Text style={styles.signatureDate}>
+                      {entradaInspection.signedAt
+                        ? new Date(
+                            entradaInspection.signedAt
+                          ).toLocaleDateString("pt-BR")
+                        : ""}
+                    </Text>
+                  </View>
+                )}
+
+                {saidaInspection?.signatureUrl && (
+                  <View style={styles.signatureBlock}>
+                    <Image
+                      src={saidaInspection.signatureUrl}
+                      style={styles.signatureImage}
+                    />
+                    <View style={styles.signatureLine} />
+                    <Text style={styles.signatureLabel}>
+                      Assinatura de Saída
+                    </Text>
+                    <Text style={styles.signatureDate}>
+                      {saidaInspection.signedAt
+                        ? new Date(saidaInspection.signedAt).toLocaleDateString(
+                            "pt-BR"
+                          )
+                        : ""}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
         </View>
 
         <View style={styles.footer}>

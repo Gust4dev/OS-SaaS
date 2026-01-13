@@ -43,6 +43,13 @@ const updateSettingsSchema = z.object({
     address: z.string().optional().nullable(),
     cnpj: z.string().optional().nullable(),
     contractTemplate: z.string().optional().nullable(),
+    maxDailyCapacity: z.number().min(1).max(100).optional(),
+    businessHours: z.string().optional().nullable(),
+    slug: z.string()
+        .min(3, 'Link muito curto')
+        .max(50, 'Link muito longo')
+        .regex(/^[a-z0-9-]+$/, 'O link deve conter apenas letras minúsculas, números e hífens')
+        .optional(),
 });
 
 export const settingsRouter = router({
@@ -63,6 +70,8 @@ export const settingsRouter = router({
                 email: true,
                 address: true,
                 cnpj: true,
+                maxDailyCapacity: true,
+                businessHours: true,
                 status: true,
                 plan: true,
             },
@@ -86,8 +95,23 @@ export const settingsRouter = router({
         .mutation(async ({ ctx, input }) => {
             const oldSettings = await ctx.db.tenant.findUnique({
                 where: { id: ctx.tenantId! },
-                select: { name: true, logo: true, primaryColor: true, secondaryColor: true, pixKey: true, paymentTerms: true, phone: true, email: true, address: true, cnpj: true },
+                select: { name: true, slug: true, logo: true, primaryColor: true, secondaryColor: true, pixKey: true, paymentTerms: true, phone: true, email: true, address: true, cnpj: true },
             });
+
+            // Check slug uniqueness if changed
+            if (input.slug && input.slug !== oldSettings?.slug) {
+                const existing = await ctx.db.tenant.findUnique({
+                    where: { slug: input.slug },
+                    select: { id: true },
+                });
+
+                if (existing) {
+                    throw new TRPCError({
+                        code: 'CONFLICT',
+                        message: 'Este link já está sendo usado por outra oficina.',
+                    });
+                }
+            }
 
             const tenant = await ctx.db.tenant.update({
                 where: { id: ctx.tenantId! },
@@ -103,6 +127,9 @@ export const settingsRouter = router({
                     email: input.email,
                     address: input.address,
                     cnpj: input.cnpj,
+                    maxDailyCapacity: input.maxDailyCapacity,
+                    businessHours: input.businessHours,
+                    slug: input.slug,
                 },
             });
 

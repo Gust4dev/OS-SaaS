@@ -10,6 +10,9 @@ import {
   ArrowRight,
   TrendingUp,
   Clock,
+  Link as LinkIcon,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -24,6 +27,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui";
 import { trpc } from "@/lib/trpc/provider";
 import { cn } from "@/lib/cn";
+import { toast } from "sonner";
+import { useState } from "react";
 
 export default function DashboardPage() {
   const { user, isLoaded: isUserLoaded } = useUser();
@@ -42,6 +47,21 @@ export default function DashboardPage() {
   const customerCount = dashboardQuery.data?.customerCount ?? 0;
   const recentOrders = dashboardQuery.data?.recentOrders ?? [];
   const todaySchedule = dashboardQuery.data?.todaySchedule ?? [];
+  const tenantSlug = dashboardQuery.data?.tenantSlug;
+
+  const [isCopying, setIsCopying] = useState(false);
+
+  const bookingUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/booking/${tenantSlug}`
+      : "";
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(bookingUrl);
+    setIsCopying(true);
+    toast.success("Link copiado com sucesso!");
+    setTimeout(() => setIsCopying(false), 2000);
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -101,6 +121,44 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {/* Booking Quick Access */}
+      <Card className="border-primary/20 bg-primary/5 pb-0">
+        <CardContent className="p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/10 p-2 rounded-lg">
+              <LinkIcon className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm">
+                Seu Link de Agendamento Online
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Compartilhe este link com seus clientes para receber
+                agendamentos.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="bg-background border rounded-md px-3 py-2 text-xs font-mono flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+              {bookingUrl}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={copyToClipboard}
+              className="shrink-0"
+            >
+              {isCopying ? "Copiado!" : <Copy className="h-4 w-4" />}
+            </Button>
+            <Button size="sm" asChild className="shrink-0">
+              <Link href={`/booking/${tenantSlug}`} target="_blank">
+                <ExternalLink className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Grid - 3 columns on lg/xl */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

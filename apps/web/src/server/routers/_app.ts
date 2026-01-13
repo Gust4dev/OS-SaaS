@@ -11,6 +11,8 @@ import { dashboardRouter } from './dashboard';
 import { inspectionRouter } from './inspection';
 import { scheduleRouter } from './schedule';
 import { adminRouter } from './admin';
+import { reportRouter } from './report';
+import { backupRouter } from './backup';
 import { notificationRouter } from './notification';
 import { tenantRouter } from './tenant';
 
@@ -29,6 +31,8 @@ export const appRouter = router({
     schedule: scheduleRouter,
     notification: notificationRouter,
     tenant: tenantRouter,
+    report: reportRouter,
+    backup: backupRouter,
 });
 
 

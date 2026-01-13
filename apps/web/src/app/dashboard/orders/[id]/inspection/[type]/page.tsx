@@ -16,6 +16,7 @@ import {
   Video,
 } from "lucide-react";
 import { convertFileToWebPBase64 } from "@/lib/image-conversion";
+import { SignaturePad } from "@/components/ui/signature-pad";
 import {
   Button,
   Card,
@@ -99,6 +100,20 @@ export default function InspectionChecklistPage({ params }: PageProps) {
     },
   });
 
+  const saveSignature = trpc.inspection.saveSignature.useMutation({
+    onSuccess: () => {
+      toast.success("Assinatura salva!");
+      utils.inspection.getByOrderIdAndType.invalidate({ orderId, type });
+      // Proceed to complete inspection
+      if (inspectionQuery.data?.id) {
+        completeInspection.mutate({ inspectionId: inspectionQuery.data.id });
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   // Auto-create inspection if it doesn't exist
   const handleStartInspection = () => {
     createInspection.mutate({ orderId, type });
@@ -164,9 +179,12 @@ export default function InspectionChecklistPage({ params }: PageProps) {
     });
   };
 
-  const handleComplete = () => {
+  const handleComplete = (signatureBase64: string) => {
     if (!inspectionQuery.data?.id) return;
-    completeInspection.mutate({ inspectionId: inspectionQuery.data.id });
+    saveSignature.mutate({
+      inspectionId: inspectionQuery.data.id,
+      signatureBase64,
+    });
   };
 
   const typeInfo = INSPECTION_TYPE_LABELS[type] || {
@@ -418,27 +436,72 @@ export default function InspectionChecklistPage({ params }: PageProps) {
         </Card>
       </div>
 
+      {/* Signature Section */}
+      {inspection.status !== "concluida" && canComplete && (
+        <div className="max-w-2xl mx-auto p-4 pt-0">
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="text-lg">Assinatura Digital</CardTitle>
+              <CardDescription>
+                O cliente deve assinar abaixo para confirmar os dados da
+                vistoria.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SignaturePad
+                onSave={handleComplete}
+                placeholder="Assinatura do Cliente"
+              />
+
+              {saveSignature.isPending && (
+                <div className="flex items-center justify-center gap-2 mt-4 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Salvando assinatura e finalizando...
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Show existing signature if completed */}
+      {inspection.status === "concluida" && inspection.signatureUrl && (
+        <div className="max-w-2xl mx-auto p-4 pt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Assinatura do Cliente</CardTitle>
+              <CardDescription>
+                Registrada em{" "}
+                {new Date(inspection.signedAt || "").toLocaleDateString()}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex justify-center bg-white rounded-lg p-4 m-4 border">
+              <img
+                src={inspection.signatureUrl}
+                alt="Assinatura"
+                className="max-h-32 object-contain"
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Bottom Action Bar */}
       {inspection.status !== "concluida" && (
-        <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4">
+        <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 z-20">
           <div className="max-w-2xl mx-auto">
-            <Button
-              size="lg"
-              className="w-full"
-              disabled={!canComplete || completeInspection.isPending}
-              onClick={handleComplete}
-            >
-              {completeInspection.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Check className="h-4 w-4 mr-2" />
+            <div className="flex flex-col gap-2">
+              {!canComplete && (
+                <Button size="lg" className="w-full" disabled={true}>
+                  Faltam {totalRequired - completedRequired} itens obrigatórios
+                </Button>
               )}
-              {canComplete
-                ? "Concluir Vistoria"
-                : `Faltam ${
-                    totalRequired - completedRequired
-                  } itens obrigatórios`}
-            </Button>
+              {canComplete && (
+                <p className="text-center text-sm text-muted-foreground mb-2">
+                  Assine acima para concluir a vistoria
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}

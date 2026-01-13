@@ -5,7 +5,8 @@ const ALGORITHM = 'aes-256-gcm';
 function getKey(): Buffer {
     const key = process.env.ENCRYPTION_KEY;
     if (!key) throw new Error('ENCRYPTION_KEY not configured');
-    const salt = process.env.ENCRYPTION_SALT || 'autevo-default-salt';
+    const salt = process.env.ENCRYPTION_SALT;
+    if (!salt) throw new Error('ENCRYPTION_SALT not configured');
     return scryptSync(key, salt, 32);
 }
 

@@ -13,6 +13,7 @@ import {
   Calendar,
   Filter,
   ChevronRight,
+  Receipt,
 } from "lucide-react";
 import {
   Button,
@@ -30,6 +31,9 @@ import {
 import { StatusBadge } from "@/components/orders";
 import type { Column } from "@/components/ui";
 import { trpc } from "@/lib/trpc/provider";
+import { exportToExcel, formatFilenameDate } from "@/lib/export";
+import { toast } from "sonner";
+import { OrderStatus } from "@prisma/client";
 
 const statusOptions = [
   { value: "AGENDADO", label: "Agendado" },
@@ -189,7 +193,8 @@ export default function OrdersPage() {
             Gerencie as ordens de serviço do sistema
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <ExportButton search={search} selectedStatuses={selectedStatuses} />
           <Button
             variant={showFilters ? "secondary" : "outline"}
             onClick={() => setShowFilters(!showFilters)}
@@ -420,5 +425,59 @@ export default function OrdersPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function ExportButton({
+  search,
+  selectedStatuses,
+}: {
+  search?: string;
+  selectedStatuses?: string[];
+}) {
+  const { refetch, isFetching } = trpc.order.listAll.useQuery(
+    {
+      search,
+      status: selectedStatuses?.length
+        ? (selectedStatuses as OrderStatus[])
+        : undefined,
+    },
+    { enabled: false }
+  );
+
+  const handleExport = async () => {
+    try {
+      const { data } = await refetch();
+      if (!data) return;
+
+      const exportData = data.map((o) => ({
+        Código: o.code,
+        Status: o.status,
+        "Data Agendamento": new Intl.DateTimeFormat("pt-BR").format(
+          new Date(o.scheduledAt)
+        ),
+        Cliente: o.vehicle.customer?.name || "N/A",
+        Veículo: `${o.vehicle.brand} ${o.vehicle.model}`,
+        Placa: o.vehicle.plate,
+        Responsável: o.assignedTo?.name || "N/A",
+        "Valor Total": Number(o.total),
+      }));
+
+      exportToExcel(
+        exportData,
+        `OrdensServico_${formatFilenameDate()}`,
+        "Ordens"
+      );
+      toast.success("Exportação concluída");
+    } catch (error) {
+      toast.error("Erro ao exportar dados");
+    }
+  };
+
+  return (
+    <Button variant="outline" onClick={handleExport} disabled={isFetching}>
+      <Receipt className="mr-2 h-4 w-4" />
+      {isFetching ? "Exportando..." : "Exportar Excel"}
+    </Button>
   );
 }

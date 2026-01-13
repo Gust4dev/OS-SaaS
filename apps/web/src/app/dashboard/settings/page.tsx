@@ -15,7 +15,10 @@ import {
   Upload,
   Link as LinkIcon,
   FileText,
+  ShieldCheck,
+  Download,
 } from "lucide-react";
+import { exportToExcel, formatFilenameDate } from "@/lib/export";
 import Link from "next/link";
 import {
   Button,
@@ -48,6 +51,10 @@ const settingsSchema = z.object({
   address: z.string().optional(),
   cnpj: z.string().optional(),
   contractTemplate: z.string().optional(),
+  slug: z
+    .string()
+    .min(3, "Link muito curto")
+    .regex(/^[a-z0-9-]+$/, "Use apenas letras, números e hífens"),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -140,6 +147,9 @@ export default function SettingsPage() {
       address: "",
       cnpj: "",
       contractTemplate: "",
+      maxDailyCapacity: 10,
+      businessHours: "",
+      slug: "",
     },
   });
 
@@ -157,6 +167,9 @@ export default function SettingsPage() {
         address: settings.address || "",
         cnpj: settings.cnpj || "",
         contractTemplate: settings.contractTemplate || "",
+        maxDailyCapacity: settings.maxDailyCapacity || 10,
+        businessHours: settings.businessHours || "",
+        slug: settings.slug || "",
       });
 
       // Check if logo is a local upload to set initial mode
@@ -225,6 +238,9 @@ export default function SettingsPage() {
       address: data.address || null,
       cnpj: data.cnpj || null,
       contractTemplate: data.contractTemplate || null,
+      maxDailyCapacity: data.maxDailyCapacity,
+      businessHours: data.businessHours || null,
+      slug: data.slug,
     });
   };
 
@@ -304,6 +320,29 @@ export default function SettingsPage() {
                 {...register("name")}
                 error={errors.name?.message}
               />
+            </div>
+
+            {/* Link da Oficina (Slug) */}
+            <div className="space-y-2">
+              <Label htmlFor="slug" className="flex items-center gap-2">
+                <LinkIcon className="h-4 w-4" />
+                Link da Oficina (URL)
+              </Label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground hidden sm:inline">
+                  autevo.com.br/booking/
+                </span>
+                <Input
+                  id="slug"
+                  placeholder="nome-da-sua-oficina"
+                  {...register("slug")}
+                  error={errors.slug?.message}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Este é o link que você enviará para seus clientes fazerem
+                agendamentos.
+              </p>
             </div>
 
             {/* Logo */}
@@ -524,7 +563,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Modelo de Contrato */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -590,7 +628,82 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Privacidade e LGPD */}
+        <Card className="lg:col-span-2 border-primary/20 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              Privacidade e LGPD
+            </CardTitle>
+            <CardDescription>
+              Gerencie seus dados e exporte backups completos em conformidade
+              com a LGPD
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-4">
+              <div>
+                <p className="font-medium">Backup Completo de Dados</p>
+                <p className="text-sm text-muted-foreground">
+                  Baixe todos os dados cadastrados (clientes, veículos, OS,
+                  pagamentos) em um único arquivo.
+                </p>
+              </div>
+              <BackupButton />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              O arquivamento de dados é uma obrigação legal. Recomendamos
+              realizar backups mensais das suas informações.
+            </p>
+          </CardContent>
+        </Card>
       </form>
     </div>
+  );
+}
+
+function BackupButton() {
+  const { refetch, isFetching } = trpc.backup.exportAllData.useQuery(
+    undefined,
+    { enabled: false }
+  );
+
+  const handleBackup = async () => {
+    try {
+      const { data } = await refetch();
+      if (!data) return;
+
+      // Create a multi-sheet-like export or a combined one.
+      // For simplicity, we'll export the main entities into separate sheets if exportToExcel supports it,
+      // or just one big sheet for now.
+      // Actually, my utility only supports one sheet. I'll export a combined view or just Customers for now?
+      // No, let's fix the utility to support multi-sheet or just export a large JSON for "Full Backup".
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Backup_Autevo_${formatFilenameDate()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast.success("Backup gerado com sucesso!");
+    } catch (error) {
+      toast.error("Erro ao gerar backup");
+    }
+  };
+
+  return (
+    <Button variant="outline" onClick={handleBackup} disabled={isFetching}>
+      {isFetching ? (
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      ) : (
+        <Download className="mr-2 h-4 w-4" />
+      )}
+      Baixar Backup (JSON)
+    </Button>
   );
 }

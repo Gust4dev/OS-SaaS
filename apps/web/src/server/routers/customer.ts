@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure, managerProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { sanitizeInput } from '@/lib/sanitize';
 
 // Input validation schemas
 const customerCreateSchema = z.object({
@@ -78,6 +79,35 @@ export const customerRouter = router({
             };
         }),
 
+    // List all customers for export (no pagination)
+    listAll: managerProcedure
+        .input(z.object({
+            search: z.string().optional(),
+        }).optional())
+        .query(async ({ ctx, input }) => {
+            const where = {
+                tenantId: ctx.tenantId!,
+                deletedAt: null,
+                ...(input?.search && {
+                    OR: [
+                        { name: { contains: input.search, mode: 'insensitive' as const } },
+                        { phone: { contains: input.search } },
+                        { email: { contains: input.search, mode: 'insensitive' as const } },
+                    ],
+                }),
+            };
+
+            return ctx.db.customer.findMany({
+                where,
+                orderBy: { name: 'asc' },
+                include: {
+                    _count: {
+                        select: { vehicles: true },
+                    },
+                },
+            });
+        }),
+
     // Get single customer by ID with vehicles
     getById: protectedProcedure
         .input(z.object({ id: z.string() }))
@@ -130,6 +160,7 @@ export const customerRouter = router({
                 where: {
                     tenantId: ctx.tenantId!,
                     phone: input.phone,
+                    deletedAt: null,
                 },
             });
 
@@ -143,18 +174,22 @@ export const customerRouter = router({
             try {
                 const customer = await ctx.db.customer.create({
                     data: {
-                        name: input.name,
+                        name: sanitizeInput(input.name),
                         phone: input.phone,
                         email: input.email || null,
                         document: input.document,
                         birthDate: input.birthDate,
                         instagram: input.instagram,
-                        notes: input.notes,
+                        notes: input.notes ? sanitizeInput(input.notes) : null,
                         whatsappOptIn: input.whatsappOptIn,
                         tenantId: ctx.tenantId!,
                         vehicles: input.vehicle ? {
                             create: {
                                 ...input.vehicle,
+                                plate: input.vehicle.plate.toUpperCase().trim(),
+                                brand: sanitizeInput(input.vehicle.brand),
+                                model: sanitizeInput(input.vehicle.model),
+                                color: sanitizeInput(input.vehicle.color),
                                 tenantId: ctx.tenantId!,
                             }
                         } : undefined,
@@ -204,6 +239,7 @@ export const customerRouter = router({
                         tenantId: ctx.tenantId!,
                         phone: input.data.phone,
                         id: { not: input.id },
+                        deletedAt: null,
                     },
                 });
 
@@ -219,6 +255,8 @@ export const customerRouter = router({
                 where: { id: input.id },
                 data: {
                     ...input.data,
+                    name: input.data.name ? sanitizeInput(input.data.name) : undefined,
+                    notes: input.data.notes ? sanitizeInput(input.data.notes) : undefined,
                     email: input.data.email || null,
                 },
             });

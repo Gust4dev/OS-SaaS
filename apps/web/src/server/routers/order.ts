@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { sanitizeInput } from '@/lib/sanitize';
 import { OrderStatus as PrismaOrderStatus, PaymentMethod } from '@prisma/client';
 
 // Valid status transitions
@@ -78,8 +79,8 @@ export const orderRouter = router({
             );
 
             // Fetch vehicle to get current owner
-            const vehicle = await ctx.db.vehicle.findUnique({
-                where: { id: input.vehicleId },
+            const vehicle = await ctx.db.vehicle.findFirst({
+                where: { id: input.vehicleId, deletedAt: null },
                 select: { customerId: true, plate: true }
             });
 
@@ -107,10 +108,10 @@ export const orderRouter = router({
                     items: {
                         create: input.items.map((item) => ({
                             serviceId: item.serviceId,
-                            customName: item.customName,
+                            customName: item.customName ? sanitizeInput(item.customName) : undefined,
                             price: item.price,
                             quantity: item.quantity,
-                            notes: item.notes,
+                            notes: item.notes ? sanitizeInput(item.notes) : undefined,
                         })),
                     },
                 },
@@ -240,6 +241,49 @@ export const orderRouter = router({
             };
         }),
 
+    // List all orders for export
+    listAll: protectedProcedure
+        .input(z.object({
+            search: z.string().optional(),
+            status: z.array(z.nativeEnum(PrismaOrderStatus)).optional(),
+            dateFrom: z.date().optional(),
+            dateTo: z.date().optional(),
+        }).optional())
+        .query(async ({ ctx, input }) => {
+            const isMember = ctx.user?.role === 'MEMBER';
+
+            const where: any = {
+                tenantId: ctx.tenantId!,
+                status: input?.status && input.status.length > 0 ? { in: input.status } : undefined,
+                OR: input?.search ? [
+                    { code: { contains: input.search, mode: 'insensitive' } },
+                    { vehicle: { plate: { contains: input.search, mode: 'insensitive' } } },
+                    { vehicle: { customer: { name: { contains: input.search, mode: 'insensitive' } } } },
+                ] : undefined,
+                createdAt: (input?.dateFrom || input?.dateTo) ? {
+                    gte: input.dateFrom,
+                    lte: input.dateTo,
+                } : undefined,
+            };
+
+            if (isMember) {
+                where.assignedToId = ctx.user!.id;
+            }
+
+            return ctx.db.serviceOrder.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    vehicle: {
+                        include: {
+                            customer: { select: { name: true } },
+                        },
+                    },
+                    assignedTo: { select: { name: true } },
+                },
+            });
+        }),
+
     // Update order basic info
     update: protectedProcedure
         .input(z.object({ id: z.string(), data: orderUpdateSchema }))
@@ -289,10 +333,10 @@ export const orderRouter = router({
                     data: input.data.items.map((item) => ({
                         orderId: input.id,
                         serviceId: item.serviceId,
-                        customName: item.customName,
+                        customName: item.customName ? sanitizeInput(item.customName) : undefined,
                         price: item.price,
                         quantity: item.quantity,
-                        notes: item.notes,
+                        notes: item.notes ? sanitizeInput(item.notes) : undefined,
                     })),
                 });
             }
@@ -655,6 +699,8 @@ export const orderRouter = router({
                         id: inspection.id,
                         type: inspection.type,
                         status: inspection.status,
+                        signatureUrl: inspection.signatureUrl,
+                        signedAt: inspection.signedAt,
                         createdAt: inspection.createdAt,
                         items: inspection.items.map(item => ({
                             id: item.id,

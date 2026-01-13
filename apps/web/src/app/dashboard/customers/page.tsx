@@ -14,6 +14,7 @@ import {
   Car,
   MessageCircle,
   ChevronRight,
+  Receipt,
 } from "lucide-react";
 import {
   Button,
@@ -39,6 +40,7 @@ import { BirthdaySidebar } from "@/components/customers/BirthdaySidebar";
 import { WhatsAppMessageMenu } from "@/components/whatsapp";
 import { trpc } from "@/lib/trpc/provider";
 import { toast } from "sonner";
+import { exportToExcel, formatFilenameDate } from "@/lib/export";
 
 interface Customer {
   id: string;
@@ -197,12 +199,15 @@ export default function CustomersPage() {
               Gerencie seus clientes e seus veículos
             </p>
           </div>
-          <Button asChild>
-            <Link href="/dashboard/customers/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Cliente
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <ExportButton search={search} />
+            <Button asChild>
+              <Link href="/dashboard/customers/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Cliente
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {/* Desktop Table */}
@@ -443,5 +448,43 @@ export default function CustomersPage() {
         </Dialog>
       </div>
     </>
+  );
+}
+
+function ExportButton({ search }: { search?: string }) {
+  const { refetch, isFetching } = trpc.customer.listAll.useQuery(
+    { search },
+    { enabled: false }
+  );
+
+  const handleExport = async () => {
+    try {
+      const { data } = await refetch();
+      if (!data) return;
+
+      const exportData = data.map((c) => ({
+        Nome: c.name,
+        Telefone: c.phone,
+        Email: c.email || "",
+        Documento: c.document || "",
+        "WhatsApp Opt-In": c.whatsappOptIn ? "Sim" : "Não",
+        Veículos: c._count.vehicles,
+        Cadastro: new Intl.DateTimeFormat("pt-BR").format(
+          new Date(c.createdAt)
+        ),
+      }));
+
+      exportToExcel(exportData, `Clientes_${formatFilenameDate()}`, "Clientes");
+      toast.success("Exportação concluída");
+    } catch (error) {
+      toast.error("Erro ao exportar dados");
+    }
+  };
+
+  return (
+    <Button variant="outline" onClick={handleExport} disabled={isFetching}>
+      <Receipt className="mr-2 h-4 w-4" />
+      {isFetching ? "Exportando..." : "Exportar Excel"}
+    </Button>
   );
 }

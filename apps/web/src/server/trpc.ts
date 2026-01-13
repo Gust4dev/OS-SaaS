@@ -26,7 +26,6 @@ const t = initTRPC.context<Context>().create({
 });
 
 export const router = t.router;
-export const publicProcedure = t.procedure;
 export const middleware = t.middleware;
 
 // Middleware: requires auth + valid tenant
@@ -77,8 +76,12 @@ const tenantMiddleware = middleware(async ({ ctx, next }) => {
 });
 
 const rateLimitMiddleware = middleware(async ({ ctx, next }) => {
-    if (ctx.user && process.env.UPSTASH_REDIS_REST_URL) {
-        const { success } = await checkRateLimit(ctx.user.id);
+    // If we have a user, rate limit by user ID. If not (public), rate limit by IP or identifier.
+    // Since we don't have IP easily here without more setup, and Upstash Ratelimit works best with identifiers:
+    const identifier = ctx.user?.id || 'anonymous'; // This is a bit weak for public, but better than nothing.
+
+    if (process.env.UPSTASH_REDIS_REST_URL) {
+        const { success } = await checkRateLimit(identifier);
         if (!success) {
             throw new TRPCError({
                 code: 'TOO_MANY_REQUESTS',
@@ -89,12 +92,14 @@ const rateLimitMiddleware = middleware(async ({ ctx, next }) => {
     return next();
 });
 
+export const publicProcedure = t.procedure.use(rateLimitMiddleware);
+export const publicProcedureNoRateLimit = t.procedure;
+
 export const protectedProcedure = publicProcedure
-    .use(tenantMiddleware)
-    .use(rateLimitMiddleware);
+    .use(tenantMiddleware);
 
 // Protected procedure WITHOUT rate limit - for high-frequency operations like inspections
-export const protectedProcedureNoRateLimit = publicProcedure
+export const protectedProcedureNoRateLimit = publicProcedureNoRateLimit
     .use(tenantMiddleware);
 
 // Role-based procedures
