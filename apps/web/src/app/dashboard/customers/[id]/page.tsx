@@ -1,26 +1,26 @@
-'use client';
+"use client";
 
-import { use } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { 
-  ArrowLeft, 
-  Pencil, 
-  Trash2, 
-  Phone, 
-  Mail, 
-  FileText, 
+import { use } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  Pencil,
+  Trash2,
+  Phone,
+  Mail,
+  FileText,
   Calendar,
   Car,
   Plus,
   MoreHorizontal,
   ClipboardList,
-} from 'lucide-react';
-import { 
-  Button, 
-  Card, 
-  CardContent, 
-  CardHeader, 
+} from "lucide-react";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
   CardTitle,
   CardDescription,
   Badge,
@@ -37,11 +37,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui';
-import { RoleGuard } from '@/components/auth/RoleGuard';
-import { trpc } from '@/lib/trpc/provider';
-import { toast } from 'sonner';
-import { useState } from 'react';
+} from "@/components/ui";
+import { RoleGuard } from "@/components/auth/RoleGuard";
+import { WhatsAppMessageMenu } from "@/components/whatsapp";
+import { trpc } from "@/lib/trpc/provider";
+import { toast } from "sonner";
+import { useState } from "react";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -56,8 +57,8 @@ export default function CustomerDetailPage({ params }: PageProps) {
 
   const deleteMutation = trpc.customer.delete.useMutation({
     onSuccess: () => {
-      toast.success('Cliente excluído com sucesso');
-      router.push('/dashboard/customers');
+      toast.success("Cliente excluído com sucesso");
+      router.push("/dashboard/customers");
     },
     onError: (error) => {
       toast.error(error.message);
@@ -109,13 +110,19 @@ export default function CustomerDetailPage({ params }: PageProps) {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">{customer.name}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">
+                {customer.name}
+              </h1>
               {customer.whatsappOptIn && (
                 <Badge variant="success">WhatsApp Ativo</Badge>
               )}
             </div>
             <p className="text-muted-foreground">
-              Cliente desde {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(new Date(customer.createdAt))}
+              Cliente desde{" "}
+              {new Intl.DateTimeFormat("pt-BR", {
+                month: "long",
+                year: "numeric",
+              }).format(new Date(customer.createdAt))}
             </p>
           </div>
         </div>
@@ -169,9 +176,19 @@ export default function CustomerDetailPage({ params }: PageProps) {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
                 <Phone className="h-4 w-4 text-primary" />
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="text-sm text-muted-foreground">Telefone</p>
-                <p className="font-medium">{customer.phone}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">{customer.phone}</p>
+                  <WhatsAppMessageMenu
+                    customer={{
+                      name: customer.name,
+                      phone: customer.phone,
+                      whatsappOptIn: customer.whatsappOptIn,
+                    }}
+                    context="customer"
+                  />
+                </div>
               </div>
             </div>
 
@@ -206,7 +223,9 @@ export default function CustomerDetailPage({ params }: PageProps) {
               <div>
                 <p className="text-sm text-muted-foreground">Cadastrado em</p>
                 <p className="font-medium">
-                  {new Intl.DateTimeFormat('pt-BR').format(new Date(customer.createdAt))}
+                  {new Intl.DateTimeFormat("pt-BR").format(
+                    new Date(customer.createdAt)
+                  )}
                 </p>
               </div>
             </div>
@@ -215,17 +234,22 @@ export default function CustomerDetailPage({ params }: PageProps) {
               <>
                 <Separator />
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-2">Observações</p>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">
+                    Observações
+                  </p>
                   <p className="text-sm">{customer.notes}</p>
                 </div>
               </>
             )}
 
-            <RoleGuard allowed={['OWNER', 'MANAGER']}>
+            <RoleGuard allowed={["OWNER", "MANAGER"]}>
               <Separator />
               <div className="rounded-lg bg-muted/50 p-3 text-center">
                 <p className="text-2xl font-bold">
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(customer.totalSpent || 0)}
+                  {new Intl.NumberFormat("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  }).format(customer.totalSpent || 0)}
                 </p>
                 <p className="text-xs text-muted-foreground">Total Gasto</p>
               </div>
@@ -239,7 +263,9 @@ export default function CustomerDetailPage({ params }: PageProps) {
             <div>
               <CardTitle className="text-lg">Veículos</CardTitle>
               <CardDescription>
-                {customer.vehicles.length} veículo{customer.vehicles.length !== 1 && 's'} cadastrado{customer.vehicles.length !== 1 && 's'}
+                {customer.vehicles.length} veículo
+                {customer.vehicles.length !== 1 && "s"} cadastrado
+                {customer.vehicles.length !== 1 && "s"}
               </CardDescription>
             </div>
             <Button size="sm" asChild>
@@ -288,8 +314,12 @@ export default function CustomerDetailPage({ params }: PageProps) {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-medium">{vehicle._count.orders} OS</p>
-                      <p className="text-xs text-muted-foreground">realizadas</p>
+                      <p className="text-sm font-medium">
+                        {vehicle._count.orders} OS
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        realizadas
+                      </p>
                     </div>
                   </Link>
                 ))}
@@ -310,7 +340,10 @@ export default function CustomerDetailPage({ params }: PageProps) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
               Cancelar
             </Button>
             <Button
@@ -318,7 +351,7 @@ export default function CustomerDetailPage({ params }: PageProps) {
               onClick={handleDelete}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? 'Excluindo...' : 'Excluir'}
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
             </Button>
           </DialogFooter>
         </DialogContent>

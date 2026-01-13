@@ -304,4 +304,40 @@ export const customerRouter = router({
 
             return customers;
         }),
+
+    getBirthdays: protectedProcedure.query(async ({ ctx }) => {
+        const customers = await ctx.db.customer.findMany({
+            where: {
+                tenantId: ctx.tenantId!,
+                birthDate: { not: null },
+                deletedAt: null,
+            },
+            select: {
+                id: true,
+                name: true,
+                phone: true,
+                birthDate: true,
+                whatsappOptIn: true,
+            },
+        });
+
+        const today = new Date();
+        const todayMonth = today.getMonth();
+        const todayDay = today.getDate();
+
+        return customers.filter((customer) => {
+            if (!customer.birthDate) return false;
+            const bMonth = customer.birthDate.getMonth();
+            const bDay = customer.birthDate.getDate();
+
+            for (let i = 0; i < 7; i++) {
+                const checkDate = new Date(today);
+                checkDate.setDate(todayDay + i);
+                if (checkDate.getMonth() === bMonth && checkDate.getDate() === bDay) {
+                    return true;
+                }
+            }
+            return false;
+        });
+    }),
 });
