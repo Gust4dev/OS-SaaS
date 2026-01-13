@@ -205,16 +205,18 @@ export default function PublicBookingPage({ params }: BookingPageProps) {
                         ? "ring-2 ring-primary border-primary"
                         : ""
                     }`}
-                    style={{
-                      borderColor:
-                        selectedService?.id === service.id
-                          ? primaryColor
-                          : undefined,
-                      ringColor:
-                        selectedService?.id === service.id
-                          ? primaryColor
-                          : undefined,
-                    }}
+                    style={
+                      {
+                        borderColor:
+                          selectedService?.id === service.id
+                            ? primaryColor
+                            : undefined,
+                        boxShadow:
+                          selectedService?.id === service.id
+                            ? `0 0 0 2px ${primaryColor}`
+                            : undefined,
+                      } as React.CSSProperties
+                    }
                     onClick={() => setSelectedService(service)}
                   >
                     <CardContent className="p-6 flex items-center justify-between">

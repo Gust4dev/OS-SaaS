@@ -51,6 +51,12 @@ const settingsSchema = z.object({
   address: z.string().optional(),
   cnpj: z.string().optional(),
   contractTemplate: z.string().optional(),
+  maxDailyCapacity: z
+    .number()
+    .min(1, "Mínimo 1 slot")
+    .max(100, "Máximo 100 slots")
+    .optional(),
+  businessHours: z.string().optional().or(z.literal("")),
   slug: z
     .string()
     .min(3, "Link muito curto")

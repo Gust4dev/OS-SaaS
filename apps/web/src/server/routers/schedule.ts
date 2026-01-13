@@ -191,24 +191,31 @@ export const scheduleRouter = router({
             }
 
             // 2. Buscar ou Criar Cliente
-            const customer = await ctx.db.customer.upsert({
+            let customer = await ctx.db.customer.findFirst({
                 where: {
-                    tenantId_phone: {
-                        tenantId: input.tenantId,
-                        phone: input.customer.phone,
-                    },
-                },
-                update: {
-                    name: sanitizeInput(input.customer.name),
-                    email: input.customer.email,
-                },
-                create: {
                     tenantId: input.tenantId,
-                    name: sanitizeInput(input.customer.name),
                     phone: input.customer.phone,
-                    email: input.customer.email,
                 },
             });
+
+            if (customer) {
+                customer = await ctx.db.customer.update({
+                    where: { id: customer.id },
+                    data: {
+                        name: sanitizeInput(input.customer.name),
+                        email: input.customer.email,
+                    },
+                });
+            } else {
+                customer = await ctx.db.customer.create({
+                    data: {
+                        tenantId: input.tenantId,
+                        name: sanitizeInput(input.customer.name),
+                        phone: input.customer.phone,
+                        email: input.customer.email,
+                    },
+                });
+            }
 
             // 3. Buscar ou Criar Veículo
             const vehicle = await ctx.db.vehicle.upsert({
