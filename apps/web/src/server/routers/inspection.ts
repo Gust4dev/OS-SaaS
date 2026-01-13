@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, protectedProcedure, publicProcedure } from '../trpc';
+import { router, protectedProcedure, protectedProcedureNoRateLimit, publicProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { generateChecklistItems, REQUIRED_CHECKLIST_ITEMS } from '@/lib/ChecklistDefinition';
 
@@ -127,7 +127,7 @@ export const inspectionRouter = router({
         }),
 
     // Get inspection by order ID and type
-    getByOrderIdAndType: protectedProcedure
+    getByOrderIdAndType: protectedProcedureNoRateLimit
         .input(z.object({
             orderId: z.string(),
             type: inspectionTypeEnum,
@@ -264,7 +264,7 @@ export const inspectionRouter = router({
         }),
 
     // Update a checklist item (add photo, change status)
-    updateItem: protectedProcedure
+    updateItem: protectedProcedureNoRateLimit
         .input(itemUpdateSchema)
         .mutation(async ({ ctx, input }) => {
             const item = await ctx.db.inspectionItem.findUnique({
@@ -306,7 +306,7 @@ export const inspectionRouter = router({
         }),
 
     // Update final video URL
-    updateVideo: protectedProcedure
+    updateVideo: protectedProcedureNoRateLimit
         .input(z.object({
             inspectionId: z.string(),
             videoUrl: z.string(),
@@ -335,7 +335,7 @@ export const inspectionRouter = router({
         }),
 
     // Add a damage/detail entry
-    addDamage: protectedProcedure
+    addDamage: protectedProcedureNoRateLimit
         .input(z.object({
             inspectionId: z.string(),
             damage: damageCreateSchema,
@@ -364,7 +364,7 @@ export const inspectionRouter = router({
         }),
 
     // Remove a damage entry
-    removeDamage: protectedProcedure
+    removeDamage: protectedProcedureNoRateLimit
         .input(z.object({ damageId: z.string() }))
         .mutation(async ({ ctx, input }) => {
             const damage = await ctx.db.inspectionDamage.findUnique({

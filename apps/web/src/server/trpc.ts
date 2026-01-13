@@ -93,6 +93,10 @@ export const protectedProcedure = publicProcedure
     .use(tenantMiddleware)
     .use(rateLimitMiddleware);
 
+// Protected procedure WITHOUT rate limit - for high-frequency operations like inspections
+export const protectedProcedureNoRateLimit = publicProcedure
+    .use(tenantMiddleware);
+
 // Role-based procedures
 const requireRole = (roles: string[]) =>
     middleware(async ({ ctx, next }) => {
