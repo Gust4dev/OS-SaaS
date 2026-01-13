@@ -9,10 +9,31 @@ export const notificationRouter = router({
             })
         )
         .query(async ({ ctx, input }) => {
+            const userRole = String(ctx.user?.role || '');
+            const isAdmin = ["ADMIN_SAAS", "OWNER", "MANAGER", "ADMIN", "admin"].includes(userRole);
+
+            let whereClause: any = {
+                tenantId: ctx.user?.tenantId!,
+            };
+
+            if (!isAdmin) {
+                const userOrders = await ctx.db.serviceOrder.findMany({
+                    where: {
+                        tenantId: ctx.user?.tenantId!,
+                        OR: [
+                            { assignedToId: ctx.user?.id },
+                            { createdById: ctx.user?.id },
+                        ]
+                    },
+                    select: { id: true }
+                });
+
+                const orderIds = userOrders.map(o => o.id);
+                whereClause.orderId = { in: orderIds };
+            }
+
             const items = await ctx.db.notificationLog.findMany({
-                where: {
-                    tenantId: ctx.user?.tenantId!,
-                },
+                where: whereClause,
                 orderBy: {
                     createdAt: 'desc',
                 },
@@ -21,7 +42,7 @@ export const notificationRouter = router({
 
             const unreadCount = await ctx.db.notificationLog.count({
                 where: {
-                    tenantId: ctx.user?.tenantId!,
+                    ...whereClause,
                     status: 'pending',
                 },
             });

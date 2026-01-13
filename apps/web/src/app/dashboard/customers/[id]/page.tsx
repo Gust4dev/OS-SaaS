@@ -242,7 +242,9 @@ export default function CustomerDetailPage({ params }: PageProps) {
               </>
             )}
 
-            <RoleGuard allowed={["OWNER", "MANAGER"]}>
+            <RoleGuard
+              allowed={["ADMIN_SAAS", "OWNER", "MANAGER", "ADMIN", "admin"]}
+            >
               <Separator />
               <div className="rounded-lg bg-muted/50 p-3 text-center">
                 <p className="text-2xl font-bold">

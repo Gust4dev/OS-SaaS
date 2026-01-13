@@ -59,7 +59,10 @@ export default function FinancialDashboardPage() {
   };
 
   return (
-    <RoleGuard allowed={["OWNER", "MANAGER"]} fallback={<AccessDenied />}>
+    <RoleGuard
+      allowed={["ADMIN_SAAS", "OWNER", "MANAGER", "ADMIN", "admin"]}
+      fallback={<AccessDenied />}
+    >
       <div className="space-y-8">
         <Header />
 

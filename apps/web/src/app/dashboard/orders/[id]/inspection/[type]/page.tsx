@@ -125,8 +125,14 @@ export default function InspectionChecklistPage({ params }: PageProps) {
         photoUrl: base64,
       });
       setUploadingItemId(null);
+      setUploadingItemId(null);
     } catch (error) {
-      toast.error("Erro ao processar/enviar foto");
+      console.error("Erro detalhado upload:", error);
+      if (error instanceof Error) {
+        toast.error(`Erro: ${error.message}`);
+      } else {
+        toast.error("Erro ao processar/enviar foto (formato inválido?)");
+      }
       setUploadingItemId(null);
     }
   };
@@ -570,7 +576,7 @@ function ChecklistItemCard({
               <input
                 type="file"
                 accept="image/*"
-                capture="environment"
+                // capture="environment" // Removido para permitir galeria também
                 className="hidden"
                 onChange={handleFileChange}
                 disabled={disabled || isUploading}
@@ -586,9 +592,9 @@ function ChecklistItemCard({
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
             <div>
-              <p className="font-medium">{item.label}</p>
+              <p className="font-medium text-sm sm:text-base">{item.label}</p>
             </div>
             <Badge
               variant={
@@ -598,7 +604,7 @@ function ChecklistItemCard({
                   ? "destructive"
                   : "outline"
               }
-              className="flex-shrink-0"
+              className="flex-shrink-0 self-start sm:self-auto"
             >
               {statusInfo.label}
             </Badge>

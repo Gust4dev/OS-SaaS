@@ -27,7 +27,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useTenantTheme } from "@/components/providers/TenantThemeProvider";
 
-type UserRole = "ADMIN_SAAS" | "OWNER" | "MANAGER" | "MEMBER";
+type UserRole =
+  | "ADMIN_SAAS"
+  | "OWNER"
+  | "MANAGER"
+  | "MEMBER"
+  | "ADMIN"
+  | "admin";
 
 interface NavItem {
   href: string;
@@ -44,7 +50,7 @@ const mainNavItems: NavItem[] = [
     href: "/dashboard/financial",
     label: "Financeiro",
     icon: TrendingUp,
-    roles: ["ADMIN_SAAS", "OWNER", "MANAGER"],
+    roles: ["ADMIN_SAAS", "OWNER", "MANAGER", "ADMIN", "admin"],
   },
   {
     href: "/dashboard/orders",
@@ -71,13 +77,13 @@ const settingsNavItems: NavItem[] = [
     href: "/dashboard/settings",
     label: "Configurações",
     icon: Settings,
-    roles: ["ADMIN_SAAS", "OWNER", "MANAGER"],
+    roles: ["ADMIN_SAAS", "OWNER", "MANAGER", "ADMIN", "admin"],
   },
   {
     href: "/dashboard/settings/team",
     label: "Equipe",
     icon: Users,
-    roles: ["ADMIN_SAAS", "OWNER", "MANAGER"],
+    roles: ["ADMIN_SAAS", "OWNER", "MANAGER", "ADMIN", "admin"],
   },
 ];
 

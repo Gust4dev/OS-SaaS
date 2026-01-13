@@ -13,6 +13,7 @@ import {
   PowerOff,
   Clock,
   DollarSign,
+  ChevronRight,
 } from "lucide-react";
 import {
   Button,
@@ -30,6 +31,8 @@ import {
   DialogHeader,
   DialogTitle,
   Skeleton,
+  Card,
+  CardContent,
 } from "@/components/ui";
 import type { Column } from "@/components/ui";
 import { trpc } from "@/lib/trpc/provider";
@@ -221,77 +224,248 @@ export default function ServicesPage() {
         </div>
       </div>
 
-      {/* Data Table */}
-      <DataTable
-        columns={columns}
-        data={services}
-        isLoading={isLoading}
-        page={page}
-        totalPages={pagination?.totalPages || 1}
-        total={pagination?.total || 0}
-        onPageChange={setPage}
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Buscar por nome ou descrição..."
-        onRowClick={(service) =>
-          router.push(`/dashboard/services/${service.id}`)
-        }
-        getRowKey={(service) => service.id}
-        emptyTitle="Nenhum serviço encontrado"
-        emptyDescription="Comece cadastrando seu primeiro serviço."
-        emptyAction={
-          <Button asChild>
-            <Link href="/dashboard/services/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Cadastrar Serviço
-            </Link>
-          </Button>
-        }
-        renderActions={(service) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
+      {/* Desktop Table */}
+      <div className="hidden md:block">
+        <DataTable
+          columns={columns}
+          data={services}
+          isLoading={isLoading}
+          page={page}
+          totalPages={pagination?.totalPages || 1}
+          total={pagination?.total || 0}
+          onPageChange={setPage}
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Buscar por nome ou descrição..."
+          onRowClick={(service) =>
+            router.push(`/dashboard/services/${service.id}`)
+          }
+          getRowKey={(service) => service.id}
+          emptyTitle="Nenhum serviço encontrado"
+          emptyDescription="Comece cadastrando seu primeiro serviço."
+          emptyAction={
+            <Button asChild>
+              <Link href="/dashboard/services/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Cadastrar Serviço
+              </Link>
+            </Button>
+          }
+          renderActions={(service) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href={`/dashboard/services/${service.id}`}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Ver Detalhes
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/dashboard/services/${service.id}/edit`}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Editar
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleToggleActive(service)}>
+                  {service.isActive ? (
+                    <>
+                      <PowerOff className="mr-2 h-4 w-4" />
+                      Desativar
+                    </>
+                  ) : (
+                    <>
+                      <Power className="mr-2 h-4 w-4" />
+                      Ativar
+                    </>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => handleDelete(service)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Excluir
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        />
+      </div>
+
+      {/* Mobile List */}
+      <div className="md:hidden space-y-4">
+        {isLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-40 w-full rounded-xl" />
+          ))
+        ) : services.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center space-y-4">
+              <p className="text-muted-foreground">
+                Nenhum serviço encontrado.
+              </p>
+              <Button asChild>
+                <Link href="/dashboard/services/new">Cadastrar Serviço</Link>
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link href={`/dashboard/services/${service.id}`}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  Ver Detalhes
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href={`/dashboard/services/${service.id}/edit`}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Editar
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleToggleActive(service)}>
-                {service.isActive ? (
-                  <>
-                    <PowerOff className="mr-2 h-4 w-4" />
-                    Desativar
-                  </>
-                ) : (
-                  <>
-                    <Power className="mr-2 h-4 w-4" />
-                    Ativar
-                  </>
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => handleDelete(service)}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {services.map((service) => (
+              <div
+                key={service.id}
+                className="bg-card border border-border/50 rounded-xl p-4 space-y-4 active:bg-muted/30 transition-colors"
+                onClick={() => router.push(`/dashboard/services/${service.id}`)}
               >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Excluir
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-lg">
+                        {service.name}
+                      </span>
+                      {!service.isActive && (
+                        <Badge variant="secondary" className="text-xs">
+                          Inativo
+                        </Badge>
+                      )}
+                    </div>
+                    {service.description && (
+                      <p className="text-sm text-muted-foreground line-clamp-1">
+                        {service.description}
+                      </p>
+                    )}
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 -mr-2"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link href={`/dashboard/services/${service.id}`}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          Ver Detalhes
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/dashboard/services/${service.id}/edit`}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Editar
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleActive(service);
+                        }}
+                      >
+                        {service.isActive ? (
+                          <>
+                            <PowerOff className="mr-2 h-4 w-4" />
+                            Desativar
+                          </>
+                        ) : (
+                          <>
+                            <Power className="mr-2 h-4 w-4" />
+                            Ativar
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(service);
+                        }}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Excluir
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">
+                      {formatCurrency(Number(service.basePrice))}
+                    </span>
+                  </div>
+                  {service.estimatedTime && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">
+                        {formatTime(service.estimatedTime)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-border/50 flex items-center justify-between">
+                  <div className="flex flex-col">
+                    {service.defaultCommissionPercent && (
+                      <Badge variant="outline" className="text-xs w-fit">
+                        Comissão: {Number(service.defaultCommissionPercent)}%
+                      </Badge>
+                    )}
+                  </div>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href={`/dashboard/services/${service.id}`}>
+                      Detalhes <ChevronRight className="ml-1 h-3 w-3" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            ))}
+
+            {/* Mobile Pagination */}
+            {(pagination?.totalPages || 0) > 1 && (
+              <div className="flex justify-center pt-4 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPage((p) => Math.max(1, p - 1));
+                  }}
+                  disabled={page === 1}
+                >
+                  Anterior
+                </Button>
+                <div className="flex items-center px-2 text-sm text-muted-foreground">
+                  {page} de {pagination?.totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPage((p) =>
+                      Math.min(pagination?.totalPages || 1, p + 1)
+                    );
+                  }}
+                  disabled={page === (pagination?.totalPages || 1)}
+                >
+                  Próxima
+                </Button>
+              </div>
+            )}
+          </div>
         )}
-      />
+      </div>
 
       {/* Delete Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

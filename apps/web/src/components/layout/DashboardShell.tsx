@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { MobileNav } from "@/components/layout/MobileNav";
@@ -47,6 +47,14 @@ export function DashboardShell({
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(newValue));
   };
 
+  const handleMobileMenuToggle = () => {
+    setIsMobileNavOpen(true);
+  };
+
+  const handleMobileMenuClose = useCallback(() => {
+    setIsMobileNavOpen(false);
+  }, []);
+
   // Prevent hydration mismatch
   if (!mounted) {
     return (
@@ -73,10 +81,7 @@ export function DashboardShell({
         </div>
 
         {/* Mobile Navigation */}
-        <MobileNav
-          isOpen={isMobileNavOpen}
-          onClose={() => setIsMobileNavOpen(false)}
-        />
+        <MobileNav isOpen={isMobileNavOpen} onClose={handleMobileMenuClose} />
 
         {/* Main Content Area */}
         <div
@@ -88,7 +93,7 @@ export function DashboardShell({
           {/* Header */}
           <Header
             isSidebarCollapsed={isSidebarCollapsed}
-            onMobileMenuToggle={() => setIsMobileNavOpen(true)}
+            onMobileMenuToggle={handleMobileMenuToggle}
           />
 
           {/* Page Content */}

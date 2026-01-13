@@ -11,7 +11,7 @@ const damageTypeEnum = z.enum(['arranhao', 'amassado', 'trinca', 'mancha', 'risc
 const severityEnum = z.enum(['leve', 'moderado', 'grave']);
 
 // Schemas
-const itemUpdateSchema = z.object({
+export const itemUpdateSchema = z.object({
     itemId: z.string(),
     status: itemStatusEnum,
     photoUrl: z.string().optional(),

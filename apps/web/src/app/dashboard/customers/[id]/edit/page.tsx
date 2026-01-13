@@ -1,32 +1,33 @@
-'use client';
+"use client";
 
-import { use, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { 
-  Button, 
-  Card, 
-  CardContent, 
-  CardHeader, 
+import { use, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
   CardTitle,
   CardDescription,
   Input,
   Label,
   Skeleton,
-} from '@/components/ui';
-import { trpc } from '@/lib/trpc/provider';
-import { toast } from 'sonner';
+} from "@/components/ui";
+import { trpc } from "@/lib/trpc/provider";
+import { toast } from "sonner";
 
 // Form validation schema
 const customerFormSchema = z.object({
-  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  phone: z.string().min(10, 'Telefone deve ter pelo menos 10 dígitos'),
-  email: z.string().email('Email inválido').optional().or(z.literal('')),
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  phone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos"),
+  email: z.string().email("Email inválido").optional().or(z.literal("")),
   document: z.string().optional(),
+  birthDate: z.string().optional(),
   notes: z.string().optional(),
   whatsappOptIn: z.boolean().default(true),
 });
@@ -51,22 +52,23 @@ export default function EditCustomerPage({ params }: PageProps) {
   } = useForm<CustomerFormData>({
     resolver: zodResolver(customerFormSchema),
     defaultValues: {
-      name: '',
-      phone: '',
-      email: '',
-      document: '',
-      notes: '',
+      name: "",
+      phone: "",
+      email: "",
+      document: "",
+      birthDate: "",
+      notes: "",
       whatsappOptIn: true,
     },
   });
 
-  const whatsappOptIn = watch('whatsappOptIn');
+  const whatsappOptIn = watch("whatsappOptIn");
 
   const { data: customer, isLoading } = trpc.customer.getById.useQuery({ id });
 
   const updateMutation = trpc.customer.update.useMutation({
     onSuccess: () => {
-      toast.success('Cliente atualizado com sucesso');
+      toast.success("Cliente atualizado com sucesso");
       router.push(`/dashboard/customers/${id}`);
     },
     onError: (error) => {
@@ -80,9 +82,12 @@ export default function EditCustomerPage({ params }: PageProps) {
       reset({
         name: customer.name,
         phone: customer.phone,
-        email: customer.email || '',
-        document: customer.document || '',
-        notes: customer.notes || '',
+        email: customer.email || "",
+        document: customer.document || "",
+        birthDate: customer.birthDate
+          ? new Date(customer.birthDate).toISOString().split("T")[0]
+          : "",
+        notes: customer.notes || "",
         whatsappOptIn: customer.whatsappOptIn,
       });
     }
@@ -93,9 +98,10 @@ export default function EditCustomerPage({ params }: PageProps) {
       id,
       data: {
         name: data.name,
-        phone: data.phone.replace(/\D/g, ''),
+        phone: data.phone.replace(/\D/g, ""),
         email: data.email || undefined,
         document: data.document || undefined,
+        birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
         notes: data.notes || undefined,
         whatsappOptIn: data.whatsappOptIn,
       },
@@ -104,31 +110,55 @@ export default function EditCustomerPage({ params }: PageProps) {
 
   // Format phone number as user types
   const formatPhone = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
+    const numbers = value.replace(/\D/g, "");
     if (numbers.length <= 2) return numbers;
-    if (numbers.length <= 7) return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+    if (numbers.length <= 7)
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
     if (numbers.length <= 11) {
-      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(
+        7
+      )}`;
     }
-    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(
+      7,
+      11
+    )}`;
   };
 
   // Format CPF/CNPJ as user types
   const formatDocument = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
+    const numbers = value.replace(/\D/g, "");
     if (numbers.length <= 11) {
       // CPF
       if (numbers.length <= 3) return numbers;
-      if (numbers.length <= 6) return `${numbers.slice(0, 3)}.${numbers.slice(3)}`;
-      if (numbers.length <= 9) return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6)}`;
-      return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-${numbers.slice(9)}`;
+      if (numbers.length <= 6)
+        return `${numbers.slice(0, 3)}.${numbers.slice(3)}`;
+      if (numbers.length <= 9)
+        return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(
+          6
+        )}`;
+      return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(
+        6,
+        9
+      )}-${numbers.slice(9)}`;
     } else {
       // CNPJ
       if (numbers.length <= 2) return numbers;
-      if (numbers.length <= 5) return `${numbers.slice(0, 2)}.${numbers.slice(2)}`;
-      if (numbers.length <= 8) return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(5)}`;
-      if (numbers.length <= 12) return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(5, 8)}/${numbers.slice(8)}`;
-      return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(5, 8)}/${numbers.slice(8, 12)}-${numbers.slice(12, 14)}`;
+      if (numbers.length <= 5)
+        return `${numbers.slice(0, 2)}.${numbers.slice(2)}`;
+      if (numbers.length <= 8)
+        return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(
+          5
+        )}`;
+      if (numbers.length <= 12)
+        return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(
+          5,
+          8
+        )}/${numbers.slice(8)}`;
+      return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(
+        5,
+        8
+      )}/${numbers.slice(8, 12)}-${numbers.slice(12, 14)}`;
     }
   };
 
@@ -194,28 +224,33 @@ export default function EditCustomerPage({ params }: PageProps) {
           <CardHeader>
             <CardTitle>Informações do Cliente</CardTitle>
             <CardDescription>
-              Preencha os dados do cliente. Campos marcados com * são obrigatórios.
+              Preencha os dados do cliente. Campos marcados com * são
+              obrigatórios.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Name */}
             <div className="space-y-2">
-              <Label htmlFor="name" required>Nome Completo</Label>
+              <Label htmlFor="name" required>
+                Nome Completo
+              </Label>
               <Input
                 id="name"
                 placeholder="Ex: João da Silva"
-                {...register('name')}
+                {...register("name")}
                 error={errors.name?.message}
               />
             </div>
 
             {/* Phone */}
             <div className="space-y-2">
-              <Label htmlFor="phone" required>Telefone</Label>
+              <Label htmlFor="phone" required>
+                Telefone
+              </Label>
               <Input
                 id="phone"
                 placeholder="(11) 99999-9999"
-                {...register('phone', {
+                {...register("phone", {
                   onChange: (e) => {
                     e.target.value = formatPhone(e.target.value);
                   },
@@ -230,7 +265,7 @@ export default function EditCustomerPage({ params }: PageProps) {
                 type="checkbox"
                 id="whatsappOptIn"
                 checked={whatsappOptIn}
-                onChange={(e) => setValue('whatsappOptIn', e.target.checked)}
+                onChange={(e) => setValue("whatsappOptIn", e.target.checked)}
                 className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
               />
               <Label htmlFor="whatsappOptIn" className="cursor-pointer">
@@ -245,7 +280,7 @@ export default function EditCustomerPage({ params }: PageProps) {
                 id="email"
                 type="email"
                 placeholder="email@exemplo.com"
-                {...register('email')}
+                {...register("email")}
                 error={errors.email?.message}
               />
             </div>
@@ -256,12 +291,23 @@ export default function EditCustomerPage({ params }: PageProps) {
               <Input
                 id="document"
                 placeholder="000.000.000-00"
-                {...register('document', {
+                {...register("document", {
                   onChange: (e) => {
                     e.target.value = formatDocument(e.target.value);
                   },
                 })}
                 error={errors.document?.message}
+              />
+            </div>
+
+            {/* Birth Date */}
+            <div className="space-y-2">
+              <Label htmlFor="birthDate">Data de Nascimento</Label>
+              <Input
+                id="birthDate"
+                type="date"
+                {...register("birthDate")}
+                error={errors.birthDate?.message}
               />
             </div>
 
@@ -272,7 +318,7 @@ export default function EditCustomerPage({ params }: PageProps) {
                 id="notes"
                 rows={3}
                 placeholder="Informações adicionais sobre o cliente..."
-                {...register('notes')}
+                {...register("notes")}
                 className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
               />
             </div>

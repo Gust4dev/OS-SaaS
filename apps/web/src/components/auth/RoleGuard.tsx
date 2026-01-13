@@ -1,15 +1,19 @@
-'use client';
+"use client";
 
-import { useUser } from '@clerk/nextjs';
-import { ReactNode } from 'react';
+import { useUser } from "@clerk/nextjs";
+import { ReactNode } from "react";
 
 interface RoleGuardProps {
   children: ReactNode;
-  allowed: ('OWNER' | 'MANAGER' | 'MEMBER')[];
+  allowed: string[];
   fallback?: ReactNode;
 }
 
-export function RoleGuard({ children, allowed, fallback = null }: RoleGuardProps) {
+export function RoleGuard({
+  children,
+  allowed,
+  fallback = null,
+}: RoleGuardProps) {
   const { user, isLoaded } = useUser();
 
   if (!isLoaded) {

@@ -2,34 +2,41 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useClerk, useUser } from "@clerk/nextjs";
 import {
   LayoutDashboard,
   ClipboardList,
   Calendar,
+  Menu,
+  X,
+  Settings,
+  LogOut,
   Users,
   Car,
+  TrendingUp,
   Wrench,
   Package,
-  Settings,
-  type LucideIcon,
 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { cn } from "@/lib/cn";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/cn";
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-}
-
-const mainNavItems: NavItem[] = [
+const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  {
+    href: "/dashboard/financial",
+    label: "Financeiro",
+    icon: TrendingUp,
+    roles: ["ADMIN_SAAS", "OWNER", "MANAGER", "ADMIN", "admin"],
+  },
   {
     href: "/dashboard/orders",
     label: "Ordens de Serviço",
@@ -38,15 +45,12 @@ const mainNavItems: NavItem[] = [
   { href: "/dashboard/scheduling", label: "Agendamentos", icon: Calendar },
   { href: "/dashboard/customers", label: "Clientes", icon: Users },
   { href: "/dashboard/vehicles", label: "Veículos", icon: Car },
-];
-
-const catalogNavItems: NavItem[] = [
-  { href: "/dashboard/services", label: "Serviços", icon: Wrench },
+  {
+    href: "/dashboard/services",
+    label: "Serviços",
+    icon: Wrench,
+  },
   { href: "/dashboard/products", label: "Produtos", icon: Package },
-];
-
-const settingsNavItems: NavItem[] = [
-  { href: "/dashboard/settings", label: "Configurações", icon: Settings },
 ];
 
 interface MobileNavProps {
@@ -56,85 +60,98 @@ interface MobileNavProps {
 
 export function MobileNav({ isOpen, onClose }: MobileNavProps) {
   const pathname = usePathname();
+  const { signOut } = useClerk();
+  const { user } = useUser();
+  const userRole = user?.publicMetadata?.role as string | undefined;
+
+  // Close sheet on route change
+  useEffect(() => {
+    onClose();
+  }, [pathname, onClose]);
+
+  const filteredNavItems = navItems.filter((item) => {
+    if (!item.roles) return true;
+    return item.roles.includes(userRole || "");
+  });
+
+  const showSettings = [
+    "ADMIN_SAAS",
+    "OWNER",
+    "MANAGER",
+    "ADMIN",
+    "admin",
+  ].includes(userRole || "");
 
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="left" className="w-[280px] p-0">
-        <SheetHeader className="border-b border-border px-6 py-4">
-          <SheetTitle className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <span className="text-lg font-bold text-primary-foreground">
-                F
-              </span>
+    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="left"
+        className="w-[300px] sm:w-[400px] flex flex-col p-6"
+      >
+        <SheetHeader className="text-left">
+          <SheetTitle className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold">
+              A
             </div>
-            <span className="text-lg font-semibold">Autevo</span>
+            Menu
           </SheetTitle>
         </SheetHeader>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-          <NavSection
-            items={mainNavItems}
-            pathname={pathname}
-            onClose={onClose}
-          />
+        <nav className="flex-1 flex flex-col gap-2 mt-8 overflow-y-auto">
+          {filteredNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
-          <Separator className="my-4" />
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <Icon className="h-5 w-5" />
+                {item.label}
+              </Link>
+            );
+          })}
 
-          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Catálogo
-          </p>
-          <NavSection
-            items={catalogNavItems}
-            pathname={pathname}
-            onClose={onClose}
-          />
+          <Separator className="my-2" />
 
-          <Separator className="my-4" />
-
-          <NavSection
-            items={settingsNavItems}
-            pathname={pathname}
-            onClose={onClose}
-          />
+          {showSettings && (
+            <Link
+              href="/dashboard/settings"
+              onClick={onClose}
+              className={cn(
+                "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors",
+                pathname.startsWith("/dashboard/settings")
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              <Settings className="h-5 w-5" />
+              Configurações
+            </Link>
+          )}
         </nav>
+
+        <div className="mt-auto pt-8">
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-3 text-muted-foreground"
+            onClick={() => signOut({ redirectUrl: "/" })}
+          >
+            <LogOut className="h-5 w-5" />
+            Sair
+          </Button>
+        </div>
       </SheetContent>
     </Sheet>
-  );
-}
-
-function NavSection({
-  items,
-  pathname,
-  onClose,
-}: {
-  items: NavItem[];
-  pathname: string;
-  onClose: () => void;
-}) {
-  return (
-    <div className="space-y-1">
-      {items.map((item) => {
-        const Icon = item.icon;
-        const isActive =
-          pathname === item.href ||
-          (item.href !== "/dashboard" && pathname.startsWith(item.href));
-
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onClose}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-all",
-              "hover:bg-accent hover:text-accent-foreground",
-              isActive ? "bg-primary/10 text-primary" : "text-muted-foreground"
-            )}
-          >
-            <Icon className="h-5 w-5" />
-            <span>{item.label}</span>
-          </Link>
-        );
-      })}
-    </div>
   );
 }

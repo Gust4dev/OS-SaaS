@@ -13,6 +13,7 @@ import {
   Mail,
   Car,
   MessageCircle,
+  ChevronRight,
 } from "lucide-react";
 import {
   Button,
@@ -30,6 +31,8 @@ import {
   DialogHeader,
   DialogTitle,
   Skeleton,
+  Card,
+  CardContent,
 } from "@/components/ui";
 import type { Column } from "@/components/ui";
 import { BirthdaySidebar } from "@/components/customers/BirthdaySidebar";
@@ -202,64 +205,213 @@ export default function CustomersPage() {
           </Button>
         </div>
 
-        {/* Data Table */}
-        <DataTable
-          columns={columns}
-          data={customers}
-          isLoading={isLoading}
-          page={page}
-          totalPages={pagination?.totalPages || 1}
-          total={pagination?.total || 0}
-          onPageChange={setPage}
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Buscar por nome, telefone ou email..."
-          onRowClick={(customer) =>
-            router.push(`/dashboard/customers/${customer.id}`)
-          }
-          getRowKey={(customer) => customer.id}
-          emptyTitle="Nenhum cliente encontrado"
-          emptyDescription="Comece cadastrando seu primeiro cliente."
-          emptyAction={
-            <Button asChild>
-              <Link href="/dashboard/customers/new">
-                <Plus className="mr-2 h-4 w-4" />
-                Cadastrar Cliente
-              </Link>
-            </Button>
-          }
-          renderActions={(customer) => (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
+        {/* Desktop Table */}
+        <div className="hidden md:block">
+          <DataTable
+            columns={columns}
+            data={customers}
+            isLoading={isLoading}
+            page={page}
+            totalPages={pagination?.totalPages || 1}
+            total={pagination?.total || 0}
+            onPageChange={setPage}
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar por nome, telefone ou email..."
+            onRowClick={(customer) =>
+              router.push(`/dashboard/customers/${customer.id}`)
+            }
+            getRowKey={(customer) => customer.id}
+            emptyTitle="Nenhum cliente encontrado"
+            emptyDescription="Comece cadastrando seu primeiro cliente."
+            emptyAction={
+              <Button asChild>
+                <Link href="/dashboard/customers/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Cadastrar Cliente
+                </Link>
+              </Button>
+            }
+            renderActions={(customer) => (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/dashboard/customers/${customer.id}`}>
+                      <Eye className="mr-2 h-4 w-4" />
+                      Ver Detalhes
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href={`/dashboard/customers/${customer.id}/edit`}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Editar
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => handleDelete(customer)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Excluir
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          />
+        </div>
+
+        {/* Mobile List */}
+        <div className="md:hidden space-y-4">
+          {isLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-32 w-full rounded-xl" />
+            ))
+          ) : customers.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center space-y-4">
+                <p className="text-muted-foreground">
+                  Nenhum cliente encontrado.
+                </p>
+                <Button asChild>
+                  <Link href="/dashboard/customers/new">Cadastrar Cliente</Link>
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link href={`/dashboard/customers/${customer.id}`}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    Ver Detalhes
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href={`/dashboard/customers/${customer.id}/edit`}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Editar
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => handleDelete(customer)}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {customers.map((customer) => (
+                <div
+                  key={customer.id}
+                  className="bg-card border border-border/50 rounded-xl p-4 space-y-4 active:bg-muted/30 transition-colors"
+                  onClick={() =>
+                    router.push(`/dashboard/customers/${customer.id}`)
+                  }
                 >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Excluir
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                        {customer.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-bold">{customer.name}</p>
+                        {customer.document && (
+                          <p className="text-xs text-muted-foreground">
+                            {customer.document}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="-mr-2 h-8 w-8"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/dashboard/customers/${customer.id}`}>
+                            Ver Detalhes
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/dashboard/customers/${customer.id}/edit`}
+                          >
+                            Editar
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(customer);
+                          }}
+                        >
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4" />
+                      <span>{customer.phone}</span>
+                      {customer.whatsappOptIn && (
+                        <Badge
+                          variant="success"
+                          className="text-[10px] px-1.5 py-0 h-4"
+                        >
+                          WA
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Car className="h-4 w-4" />
+                      <span>
+                        {customer._count.vehicles} veículos cadastrados
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-border/50 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Cadastrado em{" "}
+                      {new Intl.DateTimeFormat("pt-BR").format(
+                        new Date(customer.createdAt)
+                      )}
+                    </span>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href={`/dashboard/customers/${customer.id}`}>
+                        Ver <ChevronRight className="ml-1 h-3 w-3" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Mobile Pagination */}
+              {(pagination?.totalPages || 0) > 1 && (
+                <div className="flex justify-center pt-4 gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    Anterior
+                  </Button>
+                  <span className="flex items-center px-2 text-sm">
+                    Pag {page}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setPage((p) =>
+                        Math.min(pagination?.totalPages || 1, p + 1)
+                      )
+                    }
+                    disabled={page === (pagination?.totalPages || 1)}
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
-        />
+        </div>
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

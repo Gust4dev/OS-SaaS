@@ -385,7 +385,7 @@ export default function OrderDetailPage({ params }: PageProps) {
             </p>
           </div>
         </div>
-        <div className="flex gap-2 pl-12 sm:pl-0">
+        <div className="flex flex-wrap gap-2 mt-4 sm:mt-0">
           {/* Status Actions */}
           {order.status === "CONCLUIDO" ? (
             <ContractDownloadButton orderId={id} />
@@ -609,7 +609,7 @@ export default function OrderDetailPage({ params }: PageProps) {
                 {order.items.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between rounded-lg border border-border p-4"
+                    className="flex items-start justify-between rounded-lg border border-border p-4"
                   >
                     <div>
                       <p className="font-medium">
