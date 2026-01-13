@@ -29,6 +29,7 @@ export const vehicleRouter = router({
 
             const where = {
                 tenantId: ctx.tenantId!,
+                deletedAt: null,
                 ...(customerId && { customerId }),
                 ...(search && {
                     OR: [
@@ -79,6 +80,7 @@ export const vehicleRouter = router({
                 where: {
                     id: input.id,
                     tenantId: ctx.tenantId!,
+                    deletedAt: null,
                 },
                 include: {
                     customer: true,
@@ -266,6 +268,7 @@ export const vehicleRouter = router({
             const vehicles = await ctx.db.vehicle.findMany({
                 where: {
                     tenantId: ctx.tenantId!,
+                    deletedAt: null,
                     plate: { contains: input.plate, mode: 'insensitive' },
                 },
                 take: 10,

@@ -1,6 +1,18 @@
 import { z } from 'zod';
 import { router, protectedProcedure, managerProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { encrypt, decrypt } from '@/lib/encryption';
+
+function safeDecrypt(value: string): string {
+    try {
+        if (value.includes(':')) {
+            return decrypt(value);
+        }
+        return value;
+    } catch {
+        return value;
+    }
+}
 
 const pixKeyPatterns = {
     cpf: /^\d{11}$/,
@@ -61,12 +73,20 @@ export const settingsRouter = router({
             });
         }
 
-        return tenant;
+        return {
+            ...tenant,
+            pixKey: tenant.pixKey ? safeDecrypt(tenant.pixKey) : null,
+        };
     }),
 
     update: managerProcedure
         .input(updateSettingsSchema)
         .mutation(async ({ ctx, input }) => {
+            const oldSettings = await ctx.db.tenant.findUnique({
+                where: { id: ctx.tenantId! },
+                select: { name: true, logo: true, primaryColor: true, secondaryColor: true, pixKey: true, paymentTerms: true, phone: true, email: true, address: true, cnpj: true },
+            });
+
             const tenant = await ctx.db.tenant.update({
                 where: { id: ctx.tenantId! },
                 data: {
@@ -74,13 +94,24 @@ export const settingsRouter = router({
                     logo: input.logo,
                     primaryColor: input.primaryColor,
                     secondaryColor: input.secondaryColor,
-                    pixKey: input.pixKey,
+                    pixKey: input.pixKey ? encrypt(input.pixKey) : null,
                     paymentTerms: input.paymentTerms,
                     phone: input.phone,
                     email: input.email,
                     address: input.address,
                     cnpj: input.cnpj,
                 },
+            });
+
+            const { createAuditLog } = await import('@/lib/audit');
+            await createAuditLog({
+                tenantId: ctx.tenantId!,
+                userId: ctx.user?.id,
+                action: 'SETTINGS_UPDATE',
+                entityType: 'Tenant',
+                entityId: ctx.tenantId!,
+                oldValue: oldSettings,
+                newValue: { ...input, pixKey: input.pixKey ? '[ENCRYPTED]' : null },
             });
 
             return tenant;

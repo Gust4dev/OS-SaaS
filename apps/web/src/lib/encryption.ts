@@ -5,7 +5,8 @@ const ALGORITHM = 'aes-256-gcm';
 function getKey(): Buffer {
     const key = process.env.ENCRYPTION_KEY;
     if (!key) throw new Error('ENCRYPTION_KEY not configured');
-    return scryptSync(key, 'filmtech-salt', 32);
+    const salt = process.env.ENCRYPTION_SALT || 'autevo-default-salt';
+    return scryptSync(key, salt, 32);
 }
 
 export function encrypt(plaintext: string): string {

@@ -14,5 +14,7 @@ if (process.env.NODE_ENV !== 'production') {
     globalForPrisma.prisma = prisma;
 }
 
+prisma.$connect().catch(console.error);
+
 export * from '@prisma/client';
 export type { Prisma } from '@prisma/client';

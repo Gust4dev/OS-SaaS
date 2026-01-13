@@ -7,14 +7,26 @@ import { MobileNav } from "@/components/layout/MobileNav";
 import { TenantThemeProvider } from "@/components/providers/TenantThemeProvider";
 import { cn } from "@/lib/cn";
 
+interface TenantSettings {
+  primaryColor: string;
+  secondaryColor: string;
+  logo: string | null;
+  name: string;
+}
+
 interface DashboardShellProps {
   children: React.ReactNode;
-  userRole?: string; // We can use string to avoid strict type coupling or import specific type
+  userRole?: string;
+  initialSettings?: TenantSettings | null;
 }
 
 const SIDEBAR_COLLAPSED_KEY = "autevo-sidebar-collapsed";
 
-export function DashboardShell({ children, userRole }: DashboardShellProps) {
+export function DashboardShell({
+  children,
+  userRole,
+  initialSettings,
+}: DashboardShellProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -49,7 +61,7 @@ export function DashboardShell({ children, userRole }: DashboardShellProps) {
   }
 
   return (
-    <TenantThemeProvider>
+    <TenantThemeProvider initialSettings={initialSettings}>
       <div className="flex min-h-screen bg-background">
         {/* Desktop Sidebar */}
         <div className="hidden lg:block">

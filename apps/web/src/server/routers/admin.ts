@@ -193,6 +193,17 @@ export const adminRouter = router({
                 },
             });
 
+            const { createAuditLog } = await import('@/lib/audit');
+            await createAuditLog({
+                tenantId,
+                userId: ctx.user?.id,
+                action: 'ADMIN_ACTIVATE_TRIAL',
+                entityType: 'Tenant',
+                entityId: tenantId,
+                oldValue: { status: tenant.status },
+                newValue: { status: 'TRIAL', trialDays },
+            });
+
             return {
                 success: true,
                 tenant: {
@@ -282,6 +293,17 @@ export const adminRouter = router({
                 data: { status: 'SUSPENDED' },
             });
 
+            const { createAuditLog } = await import('@/lib/audit');
+            await createAuditLog({
+                tenantId,
+                userId: ctx.user?.id,
+                action: 'ADMIN_SUSPEND_TENANT',
+                entityType: 'Tenant',
+                entityId: tenantId,
+                oldValue: { status: tenant.status },
+                newValue: { status: 'SUSPENDED', reason },
+            });
+
             return {
                 success: true,
                 tenant: {
@@ -333,6 +355,17 @@ export const adminRouter = router({
             const updated = await ctx.db.tenant.update({
                 where: { id: tenantId },
                 data,
+            });
+
+            const { createAuditLog } = await import('@/lib/audit');
+            await createAuditLog({
+                tenantId,
+                userId: ctx.user?.id,
+                action: 'ADMIN_REACTIVATE_TENANT',
+                entityType: 'Tenant',
+                entityId: tenantId,
+                oldValue: { status: tenant.status },
+                newValue: { status: asStatus, trialDays },
             });
 
             return {

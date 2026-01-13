@@ -1,9 +1,10 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
-import '@/lib/superjson-config'; // Register custom transformers
+import '@/lib/superjson-config';
 import { ZodError } from 'zod';
 import { prisma } from '@autevo/database';
 import type { User } from '@autevo/database';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export interface Context {
     db: typeof prisma;
@@ -91,7 +92,22 @@ const tenantMiddleware = middleware(async ({ ctx, next }) => {
     return next({ ctx: { ...ctx, user: ctx.user, tenantId: ctx.user.tenantId } });
 });
 
-export const protectedProcedure = publicProcedure.use(tenantMiddleware);
+const rateLimitMiddleware = middleware(async ({ ctx, next }) => {
+    if (ctx.user && process.env.UPSTASH_REDIS_REST_URL) {
+        const { success } = await checkRateLimit(ctx.user.id);
+        if (!success) {
+            throw new TRPCError({
+                code: 'TOO_MANY_REQUESTS',
+                message: 'Limite de requisições excedido. Tente novamente em alguns segundos.',
+            });
+        }
+    }
+    return next();
+});
+
+export const protectedProcedure = publicProcedure
+    .use(tenantMiddleware)
+    .use(rateLimitMiddleware);
 
 // Role-based procedures
 const requireRole = (roles: string[]) =>

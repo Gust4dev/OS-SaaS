@@ -16,12 +16,9 @@ export function useTenantTheme() {
   return useContext(TenantThemeContext);
 }
 
-// Convert hex to HSL for CSS variable (Tailwind uses HSL format)
 function hexToHSL(hex: string): string {
-  // Remove # if present
   hex = hex.replace(/^#/, "");
 
-  // Parse hex values
   const r = parseInt(hex.slice(0, 2), 16) / 255;
   const g = parseInt(hex.slice(2, 4), 16) / 255;
   const b = parseInt(hex.slice(4, 6), 16) / 255;
@@ -49,7 +46,6 @@ function hexToHSL(hex: string): string {
     }
   }
 
-  // Return HSL string in format expected by Tailwind CSS variables
   return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(
     l * 100
   )}%`;
@@ -57,19 +53,25 @@ function hexToHSL(hex: string): string {
 
 interface TenantThemeProviderProps {
   children: React.ReactNode;
+  initialSettings?: TenantTheme | null;
 }
 
-export function TenantThemeProvider({ children }: TenantThemeProviderProps) {
-  const { data: settings } = trpc.settings.get.useQuery(undefined, {
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+export function TenantThemeProvider({
+  children,
+  initialSettings,
+}: TenantThemeProviderProps) {
+  const { data: querySettings } = trpc.settings.get.useQuery(undefined, {
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
+    enabled: !initialSettings,
   });
+
+  const settings = initialSettings || querySettings;
 
   useEffect(() => {
     if (settings?.primaryColor) {
       const hsl = hexToHSL(settings.primaryColor);
       document.documentElement.style.setProperty("--primary", hsl);
-      // Also set ring color to match
       document.documentElement.style.setProperty("--ring", hsl);
     }
 
@@ -78,10 +80,7 @@ export function TenantThemeProvider({ children }: TenantThemeProviderProps) {
       document.documentElement.style.setProperty("--secondary", hsl);
     }
 
-    // Cleanup on unmount or when settings change
-    return () => {
-      // Optionally reset to default colors
-    };
+    return () => {};
   }, [settings?.primaryColor, settings?.secondaryColor]);
 
   const theme: TenantTheme = {

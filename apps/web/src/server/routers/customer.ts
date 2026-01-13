@@ -42,6 +42,7 @@ export const customerRouter = router({
 
             const where = {
                 tenantId: ctx.tenantId!,
+                deletedAt: null,
                 ...(search && {
                     OR: [
                         { name: { contains: search, mode: 'insensitive' as const } },
@@ -85,6 +86,7 @@ export const customerRouter = router({
                 where: {
                     id: input.id,
                     tenantId: ctx.tenantId!,
+                    deletedAt: null,
                 },
                 include: {
                     vehicles: {
@@ -280,6 +282,7 @@ export const customerRouter = router({
             const customers = await ctx.db.customer.findMany({
                 where: {
                     tenantId: ctx.tenantId!,
+                    deletedAt: null,
                     OR: [
                         { name: { contains: input.query, mode: 'insensitive' } },
                         { phone: { contains: input.query } },

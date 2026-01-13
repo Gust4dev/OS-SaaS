@@ -58,7 +58,8 @@ export async function POST(req: Request) {
 
         try {
             const existingUser = await prisma.user.findFirst({
-                where: { email }
+                where: { email },
+                include: { tenant: { select: { status: true } } }
             });
 
             const sentTenantId = public_metadata?.tenantId as string | undefined;
@@ -78,6 +79,7 @@ export async function POST(req: Request) {
                         tenantId: existingUser.tenantId,
                         role: existingUser.role,
                         dbUserId: existingUser.id,
+                        tenantStatus: existingUser.tenant?.status || 'ACTIVE',
                     }
                 });
 
@@ -129,6 +131,7 @@ export async function POST(req: Request) {
                         tenantId: newTenant.id,
                         role: 'OWNER',
                         dbUserId: newUser.id,
+                        tenantStatus: 'PENDING_ACTIVATION',
                     }
                 });
             })
