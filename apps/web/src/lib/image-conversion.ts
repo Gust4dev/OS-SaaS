@@ -55,26 +55,51 @@ export async function convertFileToWebP(file: File, quality = 0.8): Promise<File
 
 export async function convertFileToWebPBase64(file: File, quality = 0.8): Promise<string> {
     return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.src = URL.createObjectURL(file);
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                reject(new Error('Could not get canvas context'));
-                return;
-            }
-            ctx.drawImage(img, 0, 0);
-            const base64 = canvas.toDataURL('image/webp', quality);
-            resolve(base64);
-            URL.revokeObjectURL(img.src);
+        // Use FileReader for better iOS Safari compatibility
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            const img = new Image();
+
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+
+                    if (!ctx) {
+                        reject(new Error('Could not get canvas context'));
+                        return;
+                    }
+
+                    ctx.drawImage(img, 0, 0);
+                    const base64 = canvas.toDataURL('image/webp', quality);
+
+                    // Fallback to JPEG if WebP not supported (older Safari)
+                    if (base64 === 'data:,') {
+                        const jpegBase64 = canvas.toDataURL('image/jpeg', quality);
+                        resolve(jpegBase64);
+                    } else {
+                        resolve(base64);
+                    }
+                } catch (error) {
+                    reject(error);
+                }
+            };
+
+            img.onerror = () => {
+                reject(new Error('Não foi possível carregar a imagem. Tente novamente.'));
+            };
+
+            img.src = reader.result as string;
         };
-        img.onerror = (error) => {
-            URL.revokeObjectURL(img.src);
-            reject(error);
+
+        reader.onerror = () => {
+            reject(new Error('Erro ao ler o arquivo. Tente novamente.'));
         };
+
+        reader.readAsDataURL(file);
     });
 }
 
