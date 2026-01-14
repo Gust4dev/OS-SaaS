@@ -4,9 +4,17 @@
  */
 
 export function sanitizeHtml(dirty: string): string {
-    // Remove all HTML tags
-    return dirty
-        .replace(/<[^>]*>/g, '')
+    // Basic protection against XSS
+    let clean = dirty;
+
+    // Remove entire script and style tags and their content
+    clean = clean.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gm, "");
+    clean = clean.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gm, "");
+
+    // Remove other tags but keep their content
+    clean = clean.replace(/<[^>]*>/g, '');
+
+    return clean
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&amp;/g, '&')

@@ -37,7 +37,7 @@ const lexendDeca = Lexend_Deca({
 
 const PIX_KEY = "3d8b2e72-72be-4d71-bfbd-0eeaea20a4e8";
 const WHATSAPP_NUMBER = "5561998031185";
-const TRIAL_PRICE = 97;
+const TRIAL_PRICE = [97];
 const TRIAL_DAYS = 60;
 
 type TenantStatus =
@@ -286,7 +286,7 @@ export default function ActivatePage() {
                 </span>
                 <div className="flex items-baseline justify-center gap-2 mb-2">
                   <span className="text-zinc-500 line-through text-2xl">
-                    R$ 297
+                    R$ 190
                   </span>
                   <span className="text-6xl font-bold bg-gradient-to-r from-white to-zinc-300 bg-clip-text text-transparent">
                     R$ {TRIAL_PRICE}

@@ -7,6 +7,15 @@ import { cn } from "@/lib/cn";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { FeaturesGrid } from "@/components/landing/FeaturesGrid";
 import { PricingSection } from "@/components/landing/PricingSection";
+import { ProblemAwareness } from "@/components/landing/ProblemAwareness";
+// FeatureOS removed
+import { FeatureVistoria } from "@/components/landing/FeatureVistoria";
+import { FeatureFinance } from "@/components/landing/FeatureFinance";
+import { FeatureWhatsapp } from "@/components/landing/FeatureWhatsapp";
+import { FAQSection } from "@/components/landing/FAQSection";
+import { FinalCTA } from "@/components/landing/FinalCTA";
+
+import { ScrollToTop } from "@/components/landing/ScrollToTop";
 
 const lexendDeca = Lexend_Deca({
   subsets: ["latin"],
@@ -32,10 +41,11 @@ export default async function LandingPage() {
         lexendDeca.className
       )}
     >
+      <ScrollToTop />
       {/* Navbar */}
       <nav className="fixed top-0 inset-x-0 z-50 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl transition-all duration-300">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 group">
+          <Link href="#hero" className="flex items-center gap-2 group">
             <div className="h-8 w-8 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
               <img
                 src="/icon.svg"
@@ -51,6 +61,32 @@ export default async function LandingPage() {
             >
               Autevo
             </span>
+          </Link>
+          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
+            <Link
+              href="#funcionalidades"
+              className="hover:text-white transition-colors"
+            >
+              Funcionalidades
+            </Link>
+            <Link
+              href="#vistoria"
+              className="hover:text-white transition-colors"
+            >
+              Vistoria
+            </Link>
+            <Link
+              href="#financeiro"
+              className="hover:text-white transition-colors"
+            >
+              Financeiro
+            </Link>
+            <Link
+              href="#pricing"
+              className="hover:text-white transition-colors"
+            >
+              Planos
+            </Link>
           </div>
           <div className="flex items-center gap-4">
             <Link
@@ -74,9 +110,23 @@ export default async function LandingPage() {
       {/* Sections */}
       <HeroSection />
 
+      <ProblemAwareness />
+
+      {/* FeatureOS removed */}
+
       <FeaturesGrid />
 
-      <PricingSection />
+      <FeatureVistoria />
+
+      <FeatureFinance />
+
+      <FeatureWhatsapp />
+
+      {/* <PricingSection />  - Temporarily commented or removed as focus is on features/value now */}
+
+      <FAQSection />
+
+      <FinalCTA />
 
       {/* Footer */}
       <footer className="border-t border-white/5 bg-[#050505] py-20 px-6">

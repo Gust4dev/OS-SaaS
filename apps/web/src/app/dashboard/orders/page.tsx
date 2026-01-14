@@ -74,7 +74,6 @@ export default function OrdersPage() {
   );
 
   const orders = data?.orders || [];
-  // const pagination = data?.pagination; // Backend uses root total/pages
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {

@@ -116,7 +116,7 @@ export default function InspectionChecklistPage({ params }: PageProps) {
     setUploadingItemId(itemId);
 
     // Debug logging for mobile photo issues
-    console.log("[Inspection Upload] File info:", {
+    console.log("[Inspection Upload] File:", {
       name: file.name,
       size: file.size,
       type: file.type,
@@ -544,7 +544,6 @@ function ChecklistItemCard({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
-      console.log("[FileChange] Event triggered", e.target.validity);
       const file = e.target.files?.[0];
       if (file) {
         console.log(
@@ -555,7 +554,6 @@ function ChecklistItemCard({
         );
         onUpload(file);
       } else {
-        console.log("[FileChange] No file selected");
       }
     } catch (error) {
       console.error("[FileChange] Error in handler:", error);
