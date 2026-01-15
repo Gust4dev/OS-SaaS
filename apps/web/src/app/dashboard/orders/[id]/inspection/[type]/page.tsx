@@ -115,40 +115,12 @@ export default function InspectionChecklistPage({ params }: PageProps) {
   const handleFileUpload = async (itemId: string, file: File) => {
     setUploadingItemId(itemId);
 
-    // DEBUG: Mostra info do arquivo como toast (visível no iPhone)
-    toast.info(`DEBUG: Arquivo recebido`, {
-      description: `Nome: ${file.name} | Tipo: ${
-        file.type || "(vazio)"
-      } | Tamanho: ${Math.round(file.size / 1024)}KB`,
-      duration: 10000,
-    });
-
     try {
-      console.log("[Inspection Upload] Starting:", {
-        name: file.name,
-        type: file.type || "(empty)",
-        size: file.size,
-      });
-
-      toast.info("DEBUG: Iniciando conversão...", { duration: 3000 });
-
       const base64 = await convertFileToWebPBase64(file);
 
-      toast.info(`DEBUG: Conversão OK! Base64 length: ${base64?.length || 0}`, {
-        duration: 3000,
-      });
-
-      // Validação do resultado
       if (!base64 || !base64.startsWith("data:image/")) {
         throw new Error("Conversão retornou resultado inválido");
       }
-
-      console.log(
-        "[Inspection Upload] Conversion success, length:",
-        base64.length
-      );
-
-      toast.info("DEBUG: Enviando para servidor...", { duration: 3000 });
 
       updateItem.mutate({
         itemId,
@@ -156,15 +128,11 @@ export default function InspectionChecklistPage({ params }: PageProps) {
         photoUrl: base64,
       });
     } catch (error) {
-      console.error("[Inspection Upload] Failed:", error);
-
-      // DEBUG: Mostra erro completo como toast
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      toast.error(`DEBUG ERROR: ${errorMsg}`, {
-        description: `Stack: ${
-          error instanceof Error ? error.stack?.substring(0, 200) : "N/A"
-        }`,
-        duration: 15000,
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro ao processar foto.";
+      toast.error(errorMessage, {
+        description: "Tente tirar a foto novamente.",
+        duration: 5000,
       });
     } finally {
       setUploadingItemId(null);
@@ -570,13 +538,9 @@ function ChecklistItemCard({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      const file = e.target.files?.[0];
-      if (file) {
-        onUpload(file);
-      }
-    } catch (error) {
-      console.error("[FileChange] Error in handler:", error);
+    const file = e.target.files?.[0];
+    if (file) {
+      onUpload(file);
     }
     e.target.value = "";
   };

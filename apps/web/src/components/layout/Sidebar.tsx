@@ -102,12 +102,6 @@ export function Sidebar({ isCollapsed, onToggle, userRole }: SidebarProps) {
   const effectiveRole =
     userRole || (user?.publicMetadata?.role as UserRole | undefined);
 
-  // Don't render nav until we know the role to avoid flash of content
-  // OR render operational items by default? Better to wait slightly or default to safe subset.
-  // Actually, for better UX, we can just render what's safe.
-  // If not loaded, we can assume lowest privilege or just wait.
-  // Let's pass userRole to NavSection.
-
   return (
     <TooltipProvider delayDuration={0}>
       <aside

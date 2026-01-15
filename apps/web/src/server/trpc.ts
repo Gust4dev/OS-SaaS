@@ -110,9 +110,7 @@ const tenantMiddleware = middleware(async ({ ctx, next }) => {
 });
 
 const rateLimitMiddleware = middleware(async ({ ctx, next }) => {
-    // If we have a user, rate limit by user ID. If not (public), rate limit by IP or identifier.
-    // Since we don't have IP easily here without more setup, and Upstash Ratelimit works best with identifiers:
-    const identifier = ctx.user?.id || 'anonymous'; // This is a bit weak for public, but better than nothing.
+    const identifier = ctx.user?.id || 'anonymous';
 
     if (process.env.UPSTASH_REDIS_REST_URL) {
         const { success } = await checkRateLimit(identifier);

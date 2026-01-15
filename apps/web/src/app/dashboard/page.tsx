@@ -33,8 +33,6 @@ import { useState } from "react";
 export default function DashboardPage() {
   const { user, isLoaded: isUserLoaded } = useUser();
 
-  // CONSOLIDATED: Single query that fetches all dashboard data
-  // This replaces 4 separate queries, reducing waterfall requests
   const dashboardQuery = trpc.dashboard.getDashboardOverview.useQuery(
     undefined,
     {
