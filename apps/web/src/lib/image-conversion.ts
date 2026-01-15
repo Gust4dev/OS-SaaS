@@ -110,7 +110,8 @@ function getScaledDimensions(width: number, height: number, maxSize: number = 20
 
 /**
  * Converte imagem para base64
- * Usa JPEG como fallback quando WebP falha (comum no Safari iOS)
+ * Usa URL.createObjectURL (mais estável no Safari iOS) ao invés de FileReader
+ * Fallback para JPEG quando WebP falha
  */
 export async function convertFileToWebPBase64(file: File, quality = 0.8): Promise<string> {
     console.log('[convertFileToWebPBase64] Starting...', {
@@ -129,98 +130,93 @@ export async function convertFileToWebPBase64(file: File, quality = 0.8): Promis
     }
 
     return new Promise((resolve, reject) => {
-        const reader = new FileReader();
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(processedFile);
 
         // Timeout para evitar travamento no iOS
         const timeout = setTimeout(() => {
+            URL.revokeObjectURL(objectUrl);
             console.error('[convertFileToWebPBase64] Timeout!');
             reject(new Error('Timeout ao carregar imagem. Tente com uma foto menor.'));
         }, 60000); // 60 segundos
 
-        reader.onload = () => {
-            const img = new Image();
-
-            img.onload = () => {
-                clearTimeout(timeout);
-
-                try {
-                    console.log('[convertFileToWebPBase64] Image loaded:', {
-                        width: img.width,
-                        height: img.height
-                    });
-
-                    const canvas = document.createElement('canvas');
-
-                    // Redimensiona se necessário
-                    const { width, height } = getScaledDimensions(img.width, img.height, 2048);
-                    console.log('[convertFileToWebPBase64] Scaled dimensions:', { width, height });
-
-                    canvas.width = width;
-                    canvas.height = height;
-
-                    const ctx = canvas.getContext('2d');
-
-                    if (!ctx) {
-                        reject(new Error('Erro ao criar canvas. Tente novamente.'));
-                        return;
-                    }
-
-                    // Fundo branco para evitar transparência (importante para PNG -> JPEG)
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    // Tenta WebP primeiro
-                    let base64 = canvas.toDataURL('image/webp', quality);
-                    console.log('[convertFileToWebPBase64] WebP result length:', base64.length);
-
-                    // Se WebP falhou (Safari antigo ou iOS problemático), usa JPEG
-                    if (!base64 || base64 === 'data:,' || base64.length < 1000) {
-                        console.log('[convertFileToWebPBase64] WebP failed, falling back to JPEG');
-                        base64 = canvas.toDataURL('image/jpeg', quality);
-                        console.log('[convertFileToWebPBase64] JPEG result length:', base64.length);
-                    }
-
-                    // Verifica se o resultado é válido
-                    if (!base64 || base64 === 'data:,' || base64.length < 1000) {
-                        console.error('[convertFileToWebPBase64] Both WebP and JPEG failed');
-                        reject(new Error('Erro ao processar imagem. Tente com outra foto.'));
-                        return;
-                    }
-
-                    // Verifica se o base64 tem formato válido
-                    if (!base64.startsWith('data:image/')) {
-                        console.error('[convertFileToWebPBase64] Invalid base64 format:', base64.substring(0, 50));
-                        reject(new Error('Formato de imagem inválido. Tente novamente.'));
-                        return;
-                    }
-
-                    console.log('[convertFileToWebPBase64] Success! Output length:', base64.length);
-                    resolve(base64);
-                } catch (error) {
-                    console.error('[convertFileToWebPBase64] Canvas error:', error);
-                    reject(new Error('Erro ao converter imagem. Tente novamente.'));
-                }
-            };
-
-            img.onerror = (event) => {
-                clearTimeout(timeout);
-                console.error('[convertFileToWebPBase64] Image load error:', event);
-                reject(new Error('Não foi possível carregar a imagem. Verifique se é uma foto válida.'));
-            };
-
-            img.src = reader.result as string;
-        };
-
-        reader.onerror = (event) => {
+        img.onload = () => {
             clearTimeout(timeout);
-            console.error('[convertFileToWebPBase64] FileReader error:', event);
-            reject(new Error('Erro ao ler arquivo. Tente novamente.'));
+            URL.revokeObjectURL(objectUrl);
+
+            try {
+                console.log('[convertFileToWebPBase64] Image loaded:', {
+                    width: img.width,
+                    height: img.height
+                });
+
+                const canvas = document.createElement('canvas');
+
+                // Redimensiona se necessário
+                const { width, height } = getScaledDimensions(img.width, img.height, 2048);
+                console.log('[convertFileToWebPBase64] Scaled dimensions:', { width, height });
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+
+                if (!ctx) {
+                    reject(new Error('Erro ao criar canvas. Tente novamente.'));
+                    return;
+                }
+
+                // Fundo branco para evitar transparência (importante para PNG -> JPEG)
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Tenta WebP primeiro
+                let base64 = canvas.toDataURL('image/webp', quality);
+                console.log('[convertFileToWebPBase64] WebP result length:', base64.length);
+
+                // Se WebP falhou (Safari antigo ou iOS problemático), usa JPEG
+                if (!base64 || base64 === 'data:,' || base64.length < 1000) {
+                    console.log('[convertFileToWebPBase64] WebP failed, falling back to JPEG');
+                    base64 = canvas.toDataURL('image/jpeg', quality);
+                    console.log('[convertFileToWebPBase64] JPEG result length:', base64.length);
+                }
+
+                // Verifica se o resultado é válido
+                if (!base64 || base64 === 'data:,' || base64.length < 1000) {
+                    console.error('[convertFileToWebPBase64] Both WebP and JPEG failed');
+                    reject(new Error('Erro ao processar imagem. Tente com outra foto.'));
+                    return;
+                }
+
+                // Verifica se o base64 tem formato válido
+                if (!base64.startsWith('data:image/')) {
+                    console.error('[convertFileToWebPBase64] Invalid base64 format:', base64.substring(0, 50));
+                    reject(new Error('Formato de imagem inválido. Tente novamente.'));
+                    return;
+                }
+
+                console.log('[convertFileToWebPBase64] Success! Output length:', base64.length);
+                resolve(base64);
+            } catch (error) {
+                console.error('[convertFileToWebPBase64] Canvas error:', error);
+                reject(new Error('Erro ao converter imagem. Tente novamente.'));
+            }
         };
 
-        reader.readAsDataURL(processedFile);
+        img.onerror = (event) => {
+            clearTimeout(timeout);
+            URL.revokeObjectURL(objectUrl);
+            console.error('[convertFileToWebPBase64] Image load error:', event);
+            reject(new Error('Não foi possível carregar a imagem. Verifique se é uma foto válida.'));
+        };
+
+        // Usa Object URL ao invés de FileReader (mais estável no Safari iOS)
+        img.src = objectUrl;
     });
 }
+
+
 
 /**
  * Converte arquivo para WebP File (para upload via FormData)
