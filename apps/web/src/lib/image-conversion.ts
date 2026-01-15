@@ -1,4 +1,4 @@
-import heic2any from 'heic2any';
+// heic2any é importado dinamicamente para evitar SSR errors (window is not defined)
 
 /**
  * Detecta se o arquivo é HEIC/HEIF (formato padrão do iPhone)
@@ -37,6 +37,10 @@ function isHeicFile(file: File): boolean {
 async function convertHeicToJpeg(file: File): Promise<Blob> {
     try {
         console.log('[convertHeicToJpeg] Starting conversion...', { name: file.name, size: file.size });
+
+        // Import dinâmico para evitar SSR errors
+        const heic2any = (await import('heic2any')).default;
+
         const result = await heic2any({
             blob: file,
             toType: 'image/jpeg',
