@@ -118,6 +118,14 @@ function InspectionsSection({ orderId }: { orderId: string }) {
   const { data: inspections, isLoading } = trpc.inspection.list.useQuery({
     orderId,
   });
+  const { data: settings } = trpc.settings.get.useQuery();
+
+  const inspectionRequired = (settings as any)?.inspectionRequired || "NONE";
+  const isEntryRequired =
+    inspectionRequired === "ENTRY" || inspectionRequired === "BOTH";
+  const isExitRequired =
+    inspectionRequired === "EXIT" || inspectionRequired === "BOTH";
+  const noInspectionRequired = inspectionRequired === "NONE";
 
   if (isLoading) {
     return (
@@ -132,7 +140,6 @@ function InspectionsSection({ orderId }: { orderId: string }) {
     );
   }
 
-  // Get status for each type
   const entradaInspection = inspections?.find((i) => i.type === "entrada");
   const saidaInspection = inspections?.find((i) => i.type === "final");
 
@@ -149,16 +156,30 @@ function InspectionsSection({ orderId }: { orderId: string }) {
       ? "andamento"
       : "pendente";
 
+  const getStatusMessage = () => {
+    if (noInspectionRequired) return "Vistorias são opcionais nesta oficina";
+    if (isEntryRequired && isExitRequired) {
+      if (entradaStatus === "ok" && saidaStatus === "ok")
+        return "Todas as vistorias obrigatórias concluídas";
+      return "Complete as vistorias de Entrada e Saída";
+    }
+    if (isEntryRequired) {
+      if (entradaStatus === "ok") return "Vistoria de Entrada concluída";
+      return "Complete a vistoria de Entrada";
+    }
+    if (isExitRequired) {
+      if (saidaStatus === "ok") return "Vistoria de Saída concluída";
+      return "Complete a vistoria de Saída";
+    }
+    return "Complete as vistorias";
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-lg">Vistorias</CardTitle>
-          <CardDescription>
-            {entradaStatus === "ok" && saidaStatus === "ok"
-              ? "Todas as vistorias obrigatórias concluídas"
-              : "Complete as vistorias obrigatórias"}
-          </CardDescription>
+          <CardDescription>{getStatusMessage()}</CardDescription>
         </div>
         <Button size="sm" asChild>
           <Link href={`/dashboard/orders/${orderId}/inspection`}>
@@ -171,7 +192,11 @@ function InspectionsSection({ orderId }: { orderId: string }) {
         {/* Entrada */}
         <Link
           href={`/dashboard/orders/${orderId}/inspection/entrada`}
-          className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors group"
+          className={`flex items-center justify-between p-3 rounded-lg transition-colors group ${
+            isEntryRequired
+              ? "bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100/50"
+              : "bg-muted/50 hover:bg-muted"
+          }`}
         >
           <div className="flex items-center gap-3">
             <span className="text-2xl">📥</span>
@@ -179,7 +204,15 @@ function InspectionsSection({ orderId }: { orderId: string }) {
               <p className="font-medium group-hover:text-primary transition-colors">
                 Entrada
               </p>
-              <p className="text-xs text-muted-foreground">Obrigatória</p>
+              <p
+                className={`text-xs ${
+                  isEntryRequired
+                    ? "text-amber-700 dark:text-amber-300 font-medium"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {isEntryRequired ? "⚠️ Obrigatória" : "Opcional"}
+              </p>
             </div>
           </div>
           <Badge
@@ -203,7 +236,11 @@ function InspectionsSection({ orderId }: { orderId: string }) {
         {/* Saída */}
         <Link
           href={`/dashboard/orders/${orderId}/inspection/final`}
-          className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors group"
+          className={`flex items-center justify-between p-3 rounded-lg transition-colors group ${
+            isExitRequired
+              ? "bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 hover:bg-amber-100/50"
+              : "bg-muted/50 hover:bg-muted"
+          }`}
         >
           <div className="flex items-center gap-3">
             <span className="text-2xl">✅</span>
@@ -211,8 +248,14 @@ function InspectionsSection({ orderId }: { orderId: string }) {
               <p className="font-medium group-hover:text-primary transition-colors">
                 Saída
               </p>
-              <p className="text-xs text-muted-foreground">
-                Obrigatória para concluir OS
+              <p
+                className={`text-xs ${
+                  isExitRequired
+                    ? "text-amber-700 dark:text-amber-300 font-medium"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {isExitRequired ? "⚠️ Obrigatória" : "Opcional"}
               </p>
             </div>
           </div>
@@ -233,6 +276,13 @@ function InspectionsSection({ orderId }: { orderId: string }) {
               : "Pendente"}
           </Badge>
         </Link>
+
+        {/* Info message when nothing is required */}
+        {noInspectionRequired && (
+          <div className="mt-2 text-xs text-muted-foreground text-center py-2 border-t">
+            💡 O proprietário configurou as vistorias como opcionais.
+          </div>
+        )}
       </CardContent>
     </Card>
   );

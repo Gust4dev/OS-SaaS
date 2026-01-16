@@ -113,6 +113,10 @@ export default function TrackingPage({ params }: PageProps) {
   const [signingInspectionId, setSigningInspectionId] = useState<string | null>(
     null
   );
+  const [viewSignatureDigits, setViewSignatureDigits] = useState("");
+  const [signatureVerified, setSignatureVerified] = useState<
+    Record<string, boolean>
+  >({});
 
   const utils = trpc.useUtils();
 
@@ -655,14 +659,53 @@ export default function TrackingPage({ params }: PageProps) {
                       <FormattedDate date={inspection.signedAt} />
                     </span>
                   </div>
-                  <CardContent className="p-4 flex justify-center">
-                    <div className="bg-white rounded-lg p-3 border shadow-sm">
-                      <img
-                        src={inspection.signatureUrl!}
-                        alt="Assinatura"
-                        className="max-h-20 object-contain"
-                      />
-                    </div>
+                  <CardContent className="p-4">
+                    {signatureVerified[inspection.id] ? (
+                      <div className="flex justify-center">
+                        <div className="bg-white rounded-lg p-3 border shadow-sm">
+                          <img
+                            src={inspection.signatureUrl!}
+                            alt="Assinatura"
+                            className="max-h-20 object-contain"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-sm text-center text-muted-foreground">
+                          Para visualizar a assinatura, digite os{" "}
+                          <strong>4 últimos dígitos</strong> do telefone
+                          cadastrado.
+                        </p>
+                        <div className="flex gap-2 max-w-xs mx-auto">
+                          <input
+                            type="tel"
+                            maxLength={4}
+                            placeholder="0000"
+                            className="flex-1 px-3 py-2 text-center text-lg font-mono tracking-widest border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            value={viewSignatureDigits}
+                            onChange={(e) =>
+                              setViewSignatureDigits(
+                                e.target.value.replace(/\D/g, "").slice(0, 4)
+                              )
+                            }
+                          />
+                          <Button
+                            size="sm"
+                            disabled={viewSignatureDigits.length !== 4}
+                            onClick={() => {
+                              setSignatureVerified((prev) => ({
+                                ...prev,
+                                [inspection.id]: true,
+                              }));
+                              setViewSignatureDigits("");
+                            }}
+                          >
+                            Ver
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}

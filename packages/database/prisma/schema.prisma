@@ -84,6 +84,8 @@ model Tenant {
   contractTemplate String?      @db.Text
   maxDailyCapacity Int          @default(10)
   businessHours    String?      @db.Text
+  inspectionRequired   String   @default("NONE")
+  inspectionSignature  Boolean  @default(true)
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 

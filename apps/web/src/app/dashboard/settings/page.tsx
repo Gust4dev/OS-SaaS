@@ -17,6 +17,7 @@ import {
   FileText,
   ShieldCheck,
   Download,
+  Eye,
 } from "lucide-react";
 import { exportToExcel, formatFilenameDate } from "@/lib/export";
 import Link from "next/link";
@@ -70,6 +71,10 @@ export default function SettingsPage() {
   const utils = trpc.useUtils();
   const [logoMode, setLogoMode] = useState<"url" | "upload">("url");
   const [isUploading, setIsUploading] = useState(false);
+  const [inspectionRequired, setInspectionRequired] = useState<
+    "NONE" | "ENTRY" | "EXIT" | "BOTH"
+  >("NONE");
+  const [inspectionSignature, setInspectionSignature] = useState(true);
 
   const { data: settings, isLoading } = trpc.settings.get.useQuery();
 
@@ -182,6 +187,9 @@ export default function SettingsPage() {
       if (settings.logo && settings.logo.startsWith("/uploads/")) {
         setLogoMode("upload");
       }
+
+      setInspectionRequired((settings as any).inspectionRequired || "NONE");
+      setInspectionSignature((settings as any).inspectionSignature ?? true);
     }
   }, [settings, reset]);
 
@@ -246,7 +254,9 @@ export default function SettingsPage() {
       maxDailyCapacity: data.maxDailyCapacity,
       businessHours: data.businessHours || null,
       slug: data.slug,
-    });
+      inspectionRequired: inspectionRequired,
+      inspectionSignature: inspectionSignature,
+    } as any);
   };
 
   const primaryColor = watch("primaryColor");
@@ -661,6 +671,65 @@ export default function SettingsPage() {
               O arquivamento de dados é uma obrigação legal. Recomendamos
               realizar backups mensais das suas informações.
             </p>
+          </CardContent>
+        </Card>
+
+        {/* Vistorias */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Vistorias
+            </CardTitle>
+            <CardDescription>
+              Configure a obrigatoriedade e assinatura das vistorias
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Vistoria Obrigatória</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={inspectionRequired}
+                  onChange={(e) => setInspectionRequired(e.target.value as any)}
+                >
+                  <option value="NONE">Nenhuma (Opcional)</option>
+                  <option value="ENTRY">Somente Entrada</option>
+                  <option value="EXIT">Somente Saída</option>
+                  <option value="BOTH">Entrada e Saída</option>
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Define quais vistorias devem ser concluídas antes de finalizar
+                  a OS.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label>Exigir assinatura do cliente</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Se ativado, o cliente pode assinar a vistoria pelo link de
+                    acompanhamento.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={inspectionSignature}
+                  onClick={() => setInspectionSignature(!inspectionSignature)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    inspectionSignature ? "bg-primary" : "bg-muted"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      inspectionSignature ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </form>

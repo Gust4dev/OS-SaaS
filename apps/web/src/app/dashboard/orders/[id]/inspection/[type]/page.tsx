@@ -53,8 +53,15 @@ export default function InspectionChecklistPage({ params }: PageProps) {
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
 
   const utils = trpc.useUtils();
+  const { data: settings } = trpc.settings.get.useQuery();
 
-  // Get or create inspection
+  const inspectionRequired = (settings as any)?.inspectionRequired || "NONE";
+  const isThisTypeRequired =
+    (type === "entrada" &&
+      (inspectionRequired === "ENTRY" || inspectionRequired === "BOTH")) ||
+    (type === "final" &&
+      (inspectionRequired === "EXIT" || inspectionRequired === "BOTH"));
+
   const inspectionQuery = trpc.inspection.getByOrderIdAndType.useQuery(
     { orderId, type },
     { enabled: !!orderId && !!type }
@@ -202,7 +209,7 @@ export default function InspectionChecklistPage({ params }: PageProps) {
               <CardDescription>{typeInfo.description}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {type !== "intermediaria" && (
+              {isThisTypeRequired ? (
                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -217,6 +224,21 @@ export default function InspectionChecklistPage({ params }: PageProps) {
                           ? "iniciar o serviço"
                           : "entregar o veículo"}
                         .
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Camera className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-left">
+                      <p className="font-medium text-blue-800 dark:text-blue-200">
+                        Vistoria Opcional
+                      </p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        Esta vistoria não é obrigatória, mas é recomendada para
+                        documentar o estado do veículo.
                       </p>
                     </div>
                   </div>

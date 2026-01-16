@@ -613,6 +613,7 @@ export const orderRouter = router({
                                 logo: true,
                                 primaryColor: true,
                                 secondaryColor: true,
+                                inspectionSignature: true,
                             }
                         },
                         items: {
@@ -664,6 +665,7 @@ export const orderRouter = router({
                         logo: order.tenant.logo,
                         primaryColor: order.tenant.primaryColor || '#DC2626',
                         secondaryColor: order.tenant.secondaryColor || '#1F2937',
+                        inspectionSignature: (order.tenant as any).inspectionSignature ?? true,
                     },
                     services: order.items.map(item => ({
                         name: item.customName || item.service?.name || 'Serviço',
@@ -674,7 +676,7 @@ export const orderRouter = router({
                         const requiredItems = inspection.items.filter(i => i.isRequired);
                         const completedRequired = requiredItems.filter(i => i.status !== 'pendente').length;
                         const allRequiredCompleted = requiredItems.length > 0 && completedRequired === requiredItems.length;
-                        const canSign = allRequiredCompleted && !inspection.signatureUrl;
+                        const canSign = allRequiredCompleted && !inspection.signatureUrl && (order.tenant as any).inspectionSignature !== false;
 
                         return {
                             id: inspection.id,

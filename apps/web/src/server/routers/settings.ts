@@ -45,6 +45,8 @@ const updateSettingsSchema = z.object({
     contractTemplate: z.string().optional().nullable(),
     maxDailyCapacity: z.number().min(1).max(100).optional(),
     businessHours: z.string().optional().nullable(),
+    inspectionRequired: z.enum(['NONE', 'ENTRY', 'EXIT', 'BOTH']).optional(),
+    inspectionSignature: z.boolean().optional(),
     slug: z.string()
         .min(3, 'Link muito curto')
         .max(50, 'Link muito longo')
@@ -72,6 +74,8 @@ export const settingsRouter = router({
                 cnpj: true,
                 maxDailyCapacity: true,
                 businessHours: true,
+                inspectionRequired: true,
+                inspectionSignature: true,
                 status: true,
                 plan: true,
             },
@@ -129,6 +133,8 @@ export const settingsRouter = router({
                     cnpj: input.cnpj,
                     maxDailyCapacity: input.maxDailyCapacity,
                     businessHours: input.businessHours,
+                    inspectionRequired: input.inspectionRequired,
+                    inspectionSignature: input.inspectionSignature,
                     slug: input.slug,
                 },
             });

@@ -431,37 +431,63 @@ export const inspectionRouter = router({
                 });
             }
 
-            const exitInspection = await ctx.db.inspection.findUnique({
-                where: {
-                    orderId_type: {
-                        orderId: input.orderId,
-                        type: 'final',
-                    },
-                },
-                select: { id: true, status: true },
+            const tenant = await ctx.db.tenant.findUnique({
+                where: { id: ctx.tenantId! },
+                select: { inspectionRequired: true },
             });
+
+            const inspectionRequired = tenant?.inspectionRequired || 'NONE';
+
+            const [exitInspection, entryInspection] = await Promise.all([
+                ctx.db.inspection.findUnique({
+                    where: { orderId_type: { orderId: input.orderId, type: 'final' } },
+                    select: { id: true, status: true },
+                }),
+                ctx.db.inspection.findUnique({
+                    where: { orderId_type: { orderId: input.orderId, type: 'entrada' } },
+                    select: { id: true, status: true },
+                }),
+            ]);
 
             const hasCompletedExitInspection = exitInspection?.status === 'concluida';
-
-            const entryInspection = await ctx.db.inspection.findUnique({
-                where: {
-                    orderId_type: {
-                        orderId: input.orderId,
-                        type: 'entrada',
-                    },
-                },
-                select: { id: true, status: true },
-            });
-
             const hasCompletedEntryInspection = entryInspection?.status === 'concluida';
 
+            const missingInspections: string[] = [];
+            let canComplete = true;
+
+            switch (inspectionRequired) {
+                case 'ENTRY':
+                    if (!hasCompletedEntryInspection) {
+                        canComplete = false;
+                        missingInspections.push('Vistoria de Entrada obrigatória não foi concluída');
+                    }
+                    break;
+                case 'EXIT':
+                    if (!hasCompletedExitInspection) {
+                        canComplete = false;
+                        missingInspections.push('Vistoria de Saída obrigatória não foi concluída');
+                    }
+                    break;
+                case 'BOTH':
+                    if (!hasCompletedEntryInspection) {
+                        canComplete = false;
+                        missingInspections.push('Vistoria de Entrada obrigatória não foi concluída');
+                    }
+                    if (!hasCompletedExitInspection) {
+                        canComplete = false;
+                        missingInspections.push('Vistoria de Saída obrigatória não foi concluída');
+                    }
+                    break;
+                default:
+                    break;
+            }
+
             return {
-                canComplete: hasCompletedExitInspection,
+                canComplete,
                 hasCompletedExitInspection,
                 hasCompletedEntryInspection,
-                missingInspections: !hasCompletedExitInspection
-                    ? ['Vistoria de Saída obrigatória não foi concluída']
-                    : [],
+                missingInspections,
+                inspectionRequired,
             };
         }),
 
