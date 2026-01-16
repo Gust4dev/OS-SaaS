@@ -34,12 +34,6 @@ export function FoundingMemberBadge({ className }: { className?: string }) {
                     MEMBRO FUNDADOR
                     <Sparkles className="h-3 w-3" />
                   </span>
-                  <span className="text-[10px] text-zinc-400">
-                    Preço vitalício:{" "}
-                    <span className="text-zinc-200 font-medium">
-                      R$ {lockedPrice}
-                    </span>
-                  </span>
                 </div>
               </div>
             </div>
@@ -50,8 +44,7 @@ export function FoundingMemberBadge({ className }: { className?: string }) {
           >
             <p className="font-medium text-amber-400 mb-1">Status Exclusivo</p>
             <p className="text-xs max-w-[200px]">
-              Você garantiu o preço de R$ {lockedPrice}/mês para sempre e
-              prioridade no suporte.
+              Você garantiu prioridade no suporte e benefícios exclusivos.
             </p>
           </TooltipContent>
         </Tooltip>

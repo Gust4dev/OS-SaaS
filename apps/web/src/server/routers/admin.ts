@@ -920,7 +920,7 @@ export const adminRouter = router({
         .input(
             z.object({
                 tenantId: z.string(),
-                customMonthlyPrice: z.number().min(0).optional(),
+                customMonthlyPrice: z.number().min(0).nullable().optional(),
                 isFoundingMember: z.boolean().optional(),
                 billingCycleStart: z.string().transform(str => new Date(str)).optional(),
                 plan: z.string().optional(),
@@ -929,14 +929,24 @@ export const adminRouter = router({
         .mutation(async ({ ctx, input }) => {
             const { tenantId, customMonthlyPrice, isFoundingMember, billingCycleStart, plan } = input;
 
+            // Build update data object with only defined values
+            const updateData: Record<string, unknown> = {};
+            if (customMonthlyPrice !== undefined) {
+                updateData.customMonthlyPrice = customMonthlyPrice;
+            }
+            if (isFoundingMember !== undefined) {
+                updateData.isFoundingMember = isFoundingMember;
+            }
+            if (billingCycleStart !== undefined) {
+                updateData.billingCycleStart = billingCycleStart;
+            }
+            if (plan !== undefined) {
+                updateData.plan = plan;
+            }
+
             const updated = await ctx.db.tenant.update({
                 where: { id: tenantId },
-                data: {
-                    customMonthlyPrice,
-                    isFoundingMember,
-                    billingCycleStart,
-                    plan,
-                },
+                data: updateData,
             });
 
             await invalidateTenantCache(tenantId);
@@ -949,22 +959,27 @@ export const adminRouter = router({
                 });
 
                 if (users.length > 0) {
-                    const clerk = await import('@clerk/nextjs/server').then(m => m.clerkClient());
-                    await Promise.all(
-                        users
-                            .filter(u => u.clerkId)
-                            .map(u =>
-                                clerk.users.updateUser(u.clerkId!, {
-                                    publicMetadata: {
-                                        tenantId,
-                                        role: u.role,
-                                        dbUserId: u.id,
-                                        tenantStatus: updated.status,
-                                        isFoundingMember: updated.isFoundingMember,
-                                    },
-                                })
-                            )
-                    );
+                    try {
+                        const clerk = await import('@clerk/nextjs/server').then(m => m.clerkClient());
+                        await Promise.all(
+                            users
+                                .filter(u => u.clerkId)
+                                .map(u =>
+                                    clerk.users.updateUser(u.clerkId!, {
+                                        publicMetadata: {
+                                            tenantId,
+                                            role: u.role,
+                                            dbUserId: u.id,
+                                            tenantStatus: updated.status,
+                                            isFoundingMember: updated.isFoundingMember,
+                                        },
+                                    })
+                                )
+                        );
+                    } catch (clerkError) {
+                        // Ignore Clerk update errors to avoid failing the request
+                        console.error('Clerk update failed', clerkError);
+                    }
                 }
             }
 

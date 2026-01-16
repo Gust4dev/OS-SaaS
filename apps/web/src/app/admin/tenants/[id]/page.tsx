@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   ArrowLeft,
   Clock,
@@ -31,6 +33,10 @@ import {
   Mail,
   Phone,
   Globe,
+  Crown,
+  DollarSign,
+  Sparkles,
+  Save,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -114,11 +120,23 @@ export default function TenantDetailsPage() {
   const [showPlanDialog, setShowPlanDialog] = useState(false);
   const [newPlan, setNewPlan] = useState<string>("");
 
+  // Billing config state
+  const [isFoundingMember, setIsFoundingMember] = useState(false);
+
   const {
     data: tenant,
     isLoading,
     refetch,
   } = trpc.admin.getTenantDetails.useQuery({ tenantId });
+
+  const { data: founderStats } = trpc.admin.getFoundingMemberStats.useQuery();
+
+  // Initialize billing state when tenant data loads
+  useEffect(() => {
+    if (tenant) {
+      setIsFoundingMember(tenant.isFoundingMember ?? false);
+    }
+  }, [tenant]);
 
   const activateMutation = trpc.admin.activateTrial.useMutation({
     onSuccess: () => {
@@ -173,6 +191,21 @@ export default function TenantDetailsPage() {
     onError: (err) => toast.error(err.message),
   });
 
+  const updatePricingMutation = trpc.admin.updateTenantPricing.useMutation({
+    onSuccess: () => {
+      toast.success("Configuração de cobrança atualizada!");
+      refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const handleSaveBillingConfig = () => {
+    updatePricingMutation.mutate({
+      tenantId,
+      isFoundingMember,
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full min-h-[50vh]">
@@ -220,12 +253,20 @@ export default function TenantDetailsPage() {
             </div>
           </div>
         </div>
-        <Badge
-          className={`${status.bgColor} ${status.color} border-0 text-sm px-3 py-1.5 font-medium self-start sm:self-center`}
-        >
-          <StatusIcon className="h-4 w-4 mr-1.5" />
-          {status.label}
-        </Badge>
+        <div className="flex flex-wrap gap-2 self-start sm:self-center">
+          {tenant.isFoundingMember && (
+            <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 text-sm px-3 py-1.5 font-medium shadow-lg shadow-amber-500/25">
+              <Crown className="h-4 w-4 mr-1.5" />
+              Fundador
+            </Badge>
+          )}
+          <Badge
+            className={`${status.bgColor} ${status.color} border-0 text-sm px-3 py-1.5 font-medium`}
+          >
+            <StatusIcon className="h-4 w-4 mr-1.5" />
+            {status.label}
+          </Badge>
+        </div>
       </div>
 
       {/* Trial Countdown Banner */}
@@ -308,7 +349,7 @@ export default function TenantDetailsPage() {
                 value={format(
                   new Date(tenant.createdAt),
                   "dd/MM/yyyy 'às' HH:mm",
-                  { locale: ptBR }
+                  { locale: ptBR },
                 )}
               />
               {tenant.trialStartedAt && (
@@ -514,6 +555,89 @@ export default function TenantDetailsPage() {
                   Cancelar Permanentemente
                 </Button>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Billing Configuration */}
+          <Card className="bg-white border-slate-200 shadow-sm">
+            <CardHeader className="border-b border-slate-100">
+              <CardTitle className="text-lg text-slate-900 flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-emerald-600" />
+                Cobrança
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              {/* Founding Member Stats */}
+              {founderStats && (
+                <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-amber-700 flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      MEMBROS FUNDADORES
+                    </span>
+                    <span className="text-xs font-bold text-amber-900">
+                      {founderStats.count} / {founderStats.limit}
+                    </span>
+                  </div>
+                  <Progress
+                    value={(founderStats.count / founderStats.limit) * 100}
+                    className="h-1.5 bg-amber-100"
+                  />
+                  {founderStats.remaining > 0 ? (
+                    <p className="text-xs text-amber-600 mt-1">
+                      {founderStats.remaining} vaga
+                      {founderStats.remaining !== 1 ? "s" : ""} restante
+                      {founderStats.remaining !== 1 ? "s" : ""}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-red-600 mt-1 font-medium">
+                      Vagas esgotadas
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Founding Member Toggle */}
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                    <Crown className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="founding-member"
+                      className="text-sm font-medium text-slate-900"
+                    >
+                      Membro Fundador
+                    </Label>
+                    <p className="text-xs text-slate-500">
+                      Preço fixo vitalício R$ 140/mês
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="founding-member"
+                  checked={isFoundingMember}
+                  onCheckedChange={setIsFoundingMember}
+                  disabled={
+                    !tenant.isFoundingMember && founderStats?.remaining === 0
+                  }
+                />
+              </div>
+
+              {/* Save Button */}
+              <Button
+                onClick={handleSaveBillingConfig}
+                disabled={updatePricingMutation.isPending}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {updatePricingMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Salvar Configuração
+              </Button>
             </CardContent>
           </Card>
 
