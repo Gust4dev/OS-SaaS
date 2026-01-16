@@ -79,6 +79,9 @@ export const scheduleRouter = router({
                     name: true,
                     slug: true,
                     logo: true,
+                    phone: true,
+                    cnpj: true,
+                    address: true,
                     primaryColor: true,
                     secondaryColor: true,
                     businessHours: true,
@@ -156,6 +159,7 @@ export const scheduleRouter = router({
                 name: z.string().min(2),
                 phone: z.string().min(10),
                 email: z.string().email().optional(),
+                birthDate: z.string().optional(), // Recebe string ISO
             }),
             vehicle: z.object({
                 plate: z.string().min(7),
@@ -199,12 +203,17 @@ export const scheduleRouter = router({
                 },
             });
 
+            const birthDateData = input.customer.birthDate
+                ? new Date(input.customer.birthDate)
+                : undefined;
+
             if (customer) {
                 customer = await ctx.db.customer.update({
                     where: { id: customer.id },
                     data: {
                         name: sanitizeInput(input.customer.name),
                         email: input.customer.email,
+                        birthDate: birthDateData,
                     },
                 });
             } else {
@@ -214,6 +223,7 @@ export const scheduleRouter = router({
                         name: sanitizeInput(input.customer.name),
                         phone: input.customer.phone,
                         email: input.customer.email,
+                        birthDate: birthDateData,
                     },
                 });
             }
