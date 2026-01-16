@@ -26,6 +26,7 @@ const navItems = [
   { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/admin/tenants", icon: Users, label: "Tenants" },
   { href: "/admin/logs", icon: ScrollText, label: "Audit Logs" },
+  { href: "/admin/performance", icon: Activity, label: "Performance" },
   { href: "/admin/settings", icon: Settings, label: "Configurações" },
 ];
 

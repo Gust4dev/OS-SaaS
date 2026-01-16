@@ -99,6 +99,7 @@ export const customerRouter = router({
 
             return ctx.db.customer.findMany({
                 where,
+                take: 5000,
                 orderBy: { name: 'asc' },
                 include: {
                     _count: {

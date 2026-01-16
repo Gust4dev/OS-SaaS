@@ -264,6 +264,7 @@ export const orderRouter = router({
 
             return ctx.db.serviceOrder.findMany({
                 where,
+                take: 5000,
                 orderBy: { createdAt: 'desc' },
                 include: {
                     vehicle: {
