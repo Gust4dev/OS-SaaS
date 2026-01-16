@@ -27,7 +27,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 60 * 1000,
+            staleTime: 30 * 1000,
             gcTime: 5 * 60 * 1000,
             refetchOnWindowFocus: true,
             refetchOnReconnect: "always",
@@ -46,6 +46,21 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           },
         }),
         mutationCache: new MutationCache({
+          onSuccess: (_data, _variables, _context, mutation) => {
+            const mutationKey = mutation.options.mutationKey;
+            if (
+              mutationKey &&
+              Array.isArray(mutationKey) &&
+              mutationKey.length > 0
+            ) {
+              const [namespace] = mutationKey as string[];
+              if (namespace) {
+                queryClient.invalidateQueries({ queryKey: [namespace] });
+              }
+            } else {
+              queryClient.invalidateQueries();
+            }
+          },
           onError: (error) => {
             const message =
               error instanceof Error ? error.message : String(error);

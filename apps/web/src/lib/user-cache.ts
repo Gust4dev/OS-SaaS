@@ -6,7 +6,7 @@ interface CachedUser {
 }
 
 const userCache = new Map<string, CachedUser>();
-export const USER_CACHE_TTL = 5 * 1000; // 5 seconds
+export const USER_CACHE_TTL = 60 * 1000;
 
 export function getCachedUser(clerkId: string): CachedUser | undefined {
     return userCache.get(clerkId);

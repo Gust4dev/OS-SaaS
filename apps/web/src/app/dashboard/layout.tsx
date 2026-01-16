@@ -28,6 +28,37 @@ const getTenantSettings = unstable_cache(
   { revalidate: 300, tags: ["tenant-settings"] }
 );
 
+const getQuickStats = unstable_cache(
+  async (tenantId: string, userId?: string, role?: string) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const baseWhere: Record<string, unknown> = { tenantId };
+    if (role === "MEMBER" && userId) {
+      baseWhere.assignedToId = userId;
+    }
+
+    const [todayOrders, inProgress, pendingPayments] = await Promise.all([
+      prisma.serviceOrder.count({
+        where: { ...baseWhere, scheduledAt: { gte: today, lt: tomorrow } },
+      }),
+      prisma.serviceOrder.count({
+        where: { ...baseWhere, status: { in: ["EM_VISTORIA", "EM_EXECUCAO"] } },
+      }),
+      prisma.serviceOrder.count({
+        where: { ...baseWhere, status: "AGUARDANDO_PAGAMENTO" },
+      }),
+    ]);
+
+    return { todayOrders, inProgress, pendingPayments };
+  },
+  ["quick-stats"],
+  { revalidate: 60, tags: ["quick-stats"] }
+);
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -45,6 +76,7 @@ export default async function DashboardLayout({
   const tenantId = metadata?.tenantId;
   const role = metadata?.role;
   const tenantStatus = metadata?.tenantStatus;
+  const dbUserId = metadata?.dbUserId;
 
   if (role !== "ADMIN_SAAS") {
     if (tenantStatus === "PENDING_ACTIVATION") {
@@ -55,10 +87,17 @@ export default async function DashboardLayout({
     }
   }
 
-  const initialSettings = tenantId ? await getTenantSettings(tenantId) : null;
+  const [initialSettings, prefetchedStats] = await Promise.all([
+    tenantId ? getTenantSettings(tenantId) : null,
+    tenantId ? getQuickStats(tenantId, dbUserId, role) : null,
+  ]);
 
   return (
-    <DashboardShell userRole={role} initialSettings={initialSettings}>
+    <DashboardShell
+      userRole={role}
+      initialSettings={initialSettings}
+      prefetchedStats={prefetchedStats}
+    >
       {children}
     </DashboardShell>
   );

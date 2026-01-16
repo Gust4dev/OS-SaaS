@@ -18,6 +18,11 @@ interface DashboardShellProps {
   children: React.ReactNode;
   userRole?: string;
   initialSettings?: TenantSettings | null;
+  prefetchedStats?: {
+    todayOrders: number;
+    inProgress: number;
+    pendingPayments: number;
+  } | null;
 }
 
 const SIDEBAR_COLLAPSED_KEY = "autevo-sidebar-collapsed";
@@ -26,6 +31,7 @@ export function DashboardShell({
   children,
   userRole,
   initialSettings,
+  prefetchedStats,
 }: DashboardShellProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
