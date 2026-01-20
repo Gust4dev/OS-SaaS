@@ -89,7 +89,7 @@ jobs:
         env:
           # Required for Next.js build (Prisma schema generation)
           DATABASE_URL: "postgresql://user:pass@localhost:5432/db"
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_placeholder"
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_Y2xlcmstYXV0ZXZvLTIyLmNsZXJrLmFjY291bnR0cy5kZXYk"
           CLERK_SECRET_KEY: "sk_test_placeholder"
           UPSTASH_REDIS_REST_URL: "https://placeholder.upstash.io"
           UPSTASH_REDIS_REST_TOKEN: "placeholder"
