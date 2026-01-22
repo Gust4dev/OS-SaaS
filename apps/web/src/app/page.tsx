@@ -1,5 +1,3 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Lexend_Deca, Delius } from "next/font/google";
@@ -77,13 +75,7 @@ const delius = Delius({
   display: "swap",
 });
 
-export default async function LandingPage() {
-  const { userId } = await auth();
-
-  if (userId) {
-    redirect("/dashboard");
-  }
-
+export default function LandingPage() {
   return (
     <div
       className={cn(

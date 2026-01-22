@@ -24,6 +24,15 @@ const isOnboardingRoute = createRouteMatcher([
 const isActivateRoute = createRouteMatcher(['/activate(.*)']);
 
 export default clerkMiddleware(async (auth, request) => {
+    // Redirect authenticated users from landing to dashboard (avoids loading Clerk on landing)
+    if (request.nextUrl.pathname === '/') {
+        const session = await auth();
+        if (session.userId) {
+            return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
+        return;
+    }
+
     if (!isPublicRoute(request)) {
         await auth.protect();
 
