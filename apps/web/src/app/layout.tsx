@@ -98,6 +98,12 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="pt-BR" suppressHydrationWarning>
+        <head>
+          <link
+            rel="preconnect"
+            href="https://proven-labrador-86.clerk.accounts.dev"
+          />
+        </head>
         <body className={`${inter.variable} font-sans antialiased`}>
           <TRPCProvider>
             <TutorialProvider>

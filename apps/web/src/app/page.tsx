@@ -20,11 +20,13 @@ import { ScrollToTop } from "@/components/landing/ScrollToTop";
 const lexendDeca = Lexend_Deca({
   subsets: ["latin"],
   weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  display: "swap",
 });
 
 const delius = Delius({
   subsets: ["latin"],
   weight: ["400"],
+  display: "swap",
 });
 
 export default async function LandingPage() {
@@ -38,31 +40,32 @@ export default async function LandingPage() {
     <div
       className={cn(
         "min-h-screen bg-[#050505] text-white selection:bg-red-500/30 overflow-x-hidden",
-        lexendDeca.className
+        lexendDeca.className,
       )}
     >
       <ScrollToTop />
       {/* Navbar */}
-      <nav className="fixed top-0 inset-x-0 z-50 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <nav className="fixed top-0 inset-x-0 z-50 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl transition-colors duration-500 transform-gpu">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="#hero" className="flex items-center gap-2 group">
-            <div className="h-8 w-8 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center group-hover:scale-105 transition-all duration-300 bg-white/5 border border-white/10 group-hover:border-white/20">
               <img
                 src="/icon.svg"
                 alt="Autevo Logo"
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain p-1.5"
+                loading="eager"
               />
             </div>
             <span
               className={cn(
-                "font-bold text-lg tracking-tight text-zinc-100",
-                delius.className
+                "font-bold text-xl tracking-tight text-white",
+                delius.className,
               )}
             >
               Autevo
             </span>
           </Link>
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
+          <div className="hidden md:flex items-center gap-8 text-[13px] font-semibold text-zinc-400">
             <Link
               href="#funcionalidades"
               className="hover:text-white transition-colors"
@@ -81,24 +84,18 @@ export default async function LandingPage() {
             >
               Financeiro
             </Link>
-            <Link
-              href="#pricing"
-              className="hover:text-white transition-colors"
-            >
-              Planos
-            </Link>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             <Link
               href="/sign-in"
-              className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+              className="hidden sm:block text-[13px] font-semibold text-zinc-400 hover:text-white transition-colors"
             >
               Entrar
             </Link>
             <Link href="/sign-up">
               <Button
                 size="sm"
-                className="bg-zinc-100 text-black hover:bg-white border-none font-bold"
+                className="bg-white text-black hover:bg-zinc-200 border-none font-bold text-xs h-9 px-5 rounded-full shadow-[0_8px_20px_-8px_rgba(255,255,255,0.3)] transition-all active:scale-95"
               >
                 Evoluir Agora
               </Button>
