@@ -4,6 +4,8 @@ import { stripe } from '@/lib/stripe';
 
 // This endpoint should be called daily by a cron job (e.g., Vercel Cron)
 // Protected by CRON_SECRET in production
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
     // Verify cron secret in production
     const authHeader = request.headers.get('authorization');
